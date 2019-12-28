@@ -23,6 +23,7 @@ use crate::var::{VarValue};
 //   +user: home, config_dir, doc_dir, desktop_dir, temp
 //   +misc: join?
 //   temp: make_temp_dir, make_temp_file
+//   util: print
 
 type FuncResult = Result<VarValue, String>;
 enum CheckType {
@@ -69,6 +70,8 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
             | "user_dir" | "user-dir" => system_path(SysPath::Home),
         "config" | "config_dir" | "config-dir" => system_path(SysPath::Config),
         "documents" | "docs_dir" | "docs-dir" => system_path(SysPath::Docs),
+        "print" => print_all(args, false),
+        "println" => print_all(args, true),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -213,6 +216,17 @@ fn system_path(pathtype: SysPath) -> FuncResult {
             Some(p) => Ok(VarValue::Str(p.to_string_lossy().to_string())),
         },
     }
+}
+
+fn print_all(args: &[VarValue], add_new_line: bool) -> FuncResult {
+    for (idx, v) in args.iter().enumerate() {
+        if idx != 0 {
+            print!(" ");
+        }
+        print!("{}", v.to_string());
+    }
+    println!();
+    Ok(VarValue::Int(1))
 }
 
 #[cfg(test)]
