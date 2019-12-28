@@ -1,0 +1,88 @@
+WHITESPACE = _{ " " | "\t" }
+eoi = _{ !ANY }
+
+shebang = { SOI ~ "#!" ~ ANY* ~ eoi }
+comment_body = { ANY* }
+comment = { SOI ~ ("#" | "//") ~ comment_body}
+doc_comment = { SOI ~ "##" ~ comment_body }
+
+int = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
+ident = @{ (LETTER | "_") ~ (LETTER | ASCII_DIGIT | "-" | "_")* }
+exec = { "`" ~ (!"`" ~ ANY)* ~ "`" }
+squoted = { ("''") | ("'" ~ (!"'" ~ ANY) * ~ "'") }
+dquoted = { ("\"\"") | ("\"" ~ (!"\"" ~ ANY) * ~ "\"") }
+rstr = { "r#" ~ (!"#" ~ ANY) * ~ "#" }
+string = { squoted | dquoted | rstr }
+
+cmd_flags = { ("@" | "-")* }
+
+var = @{ "$" ~ (ident | ("{" ~ ident ~ "}")) }
+
+not_op = { ^"not" | "!" }
+and_op = { ^"and" | "&&" }
+or_op  = { ^"or" | "||" }
+cmp_op = { "==" | "!=" | ">" | "<" | "<=" | ">=" }
+
+arg = { not_op? ~ (var | func | int | exec | string) }
+arglist = { arg ~ ("," ~ arg)* }
+func = { ident ~ (("(" ~ ")") | ("(" ~ arglist ~ ")")) }
+
+sexpr = { (arg ~ cmp_op ~ arg) | arg }
+andexpr = { sexpr ~ (and_op ~ sexpr)* }
+cond = { andexpr ~ (or_op ~ andexpr)* }
+
+include_body = { string | ident }
+include_stmt = { cmd_flags? ~ ^"include" ~ include_body ~ eoi}
+
+feature_name = { ident }
+feature_val = { (ident | int) ~ ("," ~ (ident | int))* }
+feature = { not_op? ~ feature_name ~ "(" ~ feature_val ~ ")" }
+feature_list = { "#[" ~ feature ~ ("," ~ feature)* ~ "]" ~ eoi }
+
+sec_sep = { ":" }
+sec_name = { ident }
+sec_arg_name = @{ "+"? ~ ident }
+sec_args = { sec_arg_name* }
+sec_deps = { ident* }
+recipe = { cmd_flags ~ sec_name ~ sec_args ~ sec_sep ~ sec_deps ~ eoi }
+
+def_assign_sym = { "?=" }
+either_sym = { "?" }
+assign_sym = { "=" }
+assign_expr = { cond }
+either_arg = { var | int | ident | squoted | dquoted | rstr | exec}
+either_assign = { ident ~ assign_sym ~ either_arg ~ (either_sym ~ either_arg)+ ~ eoi }
+either_def_assign = { ident ~ def_assign_sym ~ either_arg ~ (either_sym ~ either_arg)+ ~ eoi }
+def_assign = { ident ~ def_assign_sym ~ assign_expr ~  eoi }
+assign = { ident ~ assign_sym ~ assign_expr ~ eoi }
+
+stmt_open = { ";"? ~ (^"then" | ^"do" | ":" | "{") ~ ";"? }
+stmt_close = { ^"end" | "}" | ^"done" ~ eoi }
+return_stmt = { ^"return" ~ eoi }
+
+if_word = { ^"if" }
+elseif_word = { ^"elseif" }
+else_word = { ^"else" }
+if_stmt = { if_word ~ cond ~ stmt_open?  ~ eoi }
+elseif_stmt = { elseif_word ~ cond ~ stmt_open?  ~ eoi }
+else_stmt = { else_word ~ stmt_open? ~ eoi }
+
+while_word = { ^"while" }
+while_stmt = { while_word ~ cond ~ stmt_open?  ~ eoi }
+break_stmt = { ^"break" ~ eoi }
+cont_stmt = { (^"continue" | ^"cont") ~ eoi  }
+
+for_word = { ^"for" }
+in_word = { ^"in" }
+int_seq = { int ~ ".." ~ int ~ (".." ~ int)? }
+raw_seq = { ident+ }
+seq = { int_seq | squoted | dquoted | exec | raw_seq }
+for_stmt = { for_word ~ ident ~ in_word ~ seq ~ stmt_open? ~ eoi}
+
+shell_cmd = { ANY* }
+shell_stmt = { cmd_flags? ~ shell_cmd ~ eoi }
+
+expression = _{ SOI ~ shebang | include_stmt | if_stmt | elseif_stmt | else_stmt | for_stmt
+         | while_stmt | recipe | feature_list | doc_comment | comment
+         | either_def_assign | either_assign | def_assign | assign | stmt_close
+         | break_stmt | cont_stmt | return_stmt | (exec ~ eoi) | (func ~ eoi) | shell_stmt }
