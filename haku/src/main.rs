@@ -1,4 +1,5 @@
 mod config;
+use std::path::{Path};
 
 use std::process::exit;
 use std::collections::HashSet;
@@ -61,6 +62,23 @@ fn display_recipes(eng: Engine) {
     }
 }
 
+fn detect_taskfile() -> String {
+    #[cfg(windows)]
+    let names = vec!["Taskfile", "Hakufile"];
+    #[cfg(not(windows))]
+    let names = vec!["Taskfile", "taskfile", "Hakufile", "hakufile"];
+
+    for name in names.iter() {
+        let p = Path::new(name);
+        if p.is_file() {
+            return name.to_string();
+        }
+    }
+
+    eprintln!("No task file in this directory ({:?})", names);
+    exit(1);
+}
+
 fn main() -> Result<(), HakuError> {
     let conf = parse_args()?;
 
@@ -71,15 +89,15 @@ fn main() -> Result<(), HakuError> {
     }
 
     let filename = if conf.filename.is_empty() {
-        "Taskfile"
+        detect_taskfile()
     } else {
-        conf.filename.as_str()
+        conf.filename.clone()
     };
 
     let opts = RunOpts::new().with_dry_run(conf.dry_run).with_features(conf.features.clone());
     let mut eng = Engine::new(conf.verbose, &conf.logfile);
     eng.set_free_args(&conf.args);
-    if let Err(e) = eng.load_file(filename, &opts) {
+    if let Err(e) = eng.load_file(&filename, &opts) {
         eprintln!("{}", e);
         exit(1);
     }
