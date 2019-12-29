@@ -5,6 +5,7 @@ use std::env;
 use target::{arch, os, os_family, endian, pointer_width};
 use log::{debug, info, trace, warn};
 use dirs;
+use chrono;
 
 use crate::var::{VarValue};
 
@@ -23,7 +24,8 @@ use crate::var::{VarValue};
 //   +user: home, config_dir, doc_dir, desktop_dir, temp
 //   +misc: join?
 //   temp: make_temp_dir, make_temp_file
-//   util: print
+//   +util: print
+//   time: format
 
 type FuncResult = Result<VarValue, String>;
 enum CheckType {
@@ -72,6 +74,8 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "documents" | "docs_dir" | "docs-dir" => system_path(SysPath::Docs),
         "print" => print_all(args, false),
         "println" => print_all(args, true),
+        "time" | "format-time" | "format_time"
+            | "time-format" | "time_format" => format_time(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -225,8 +229,25 @@ fn print_all(args: &[VarValue], add_new_line: bool) -> FuncResult {
         }
         print!("{}", v.to_string());
     }
-    println!();
+    if add_new_line {
+        println!();
+    }
     Ok(VarValue::Int(1))
+}
+
+fn format_time(args: &[VarValue]) -> FuncResult {
+    let now = chrono::Local::now();
+    let format = if args.is_empty() {
+        "%Y%m%d-%H%M%S".to_string()
+    } else {
+        args[0].to_flat_string()
+    };
+    let r = match format.to_lowercase().as_str() {
+        "2822" | "rfc2822" => now.to_rfc2822(),
+        "3339" | "rfc3339" => now.to_rfc3339(),
+        _ => now.format(&format).to_string(),
+    };
+    Ok(VarValue::Str(r))
 }
 
 #[cfg(test)]
