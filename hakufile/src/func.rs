@@ -18,13 +18,12 @@ use crate::var::{VarValue};
 // endian: big, little
 //
 // file'n'dir functions
-//   +test: is_file, is_dir, exists
-//   +parts: stem, ext, dir, base
-//   +change: with_ext, with_stem, with_filename, add_ext
-//   +user: home, config_dir, doc_dir, desktop_dir, temp
-//   +misc: join?
-//   temp: make_temp_dir, make_temp_file
-//   +util: print
+//   test: is_file, is_dir, exists
+//   parts: stem, ext, dir, base
+//   change: with_ext, with_stem, with_filename, add_ext
+//   user: home, config_dir, doc_dir, desktop_dir, temp
+//   misc: path_join
+//   util: print
 //   time: format
 
 type FuncResult = Result<VarValue, String>;

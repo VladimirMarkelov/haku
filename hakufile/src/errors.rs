@@ -47,6 +47,8 @@ pub enum HakuError {
     StrayElseIfError(String),
     #[error("Only the last recipe argument can be a list: '{0}'")]
     RecipeListArgError(String),
+    #[error("Shell function requires an argument{0}")]
+    EmptyShellArgError(String),
 }
 
 impl HakuError {

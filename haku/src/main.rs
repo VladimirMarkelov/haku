@@ -94,7 +94,10 @@ fn main() -> Result<(), HakuError> {
         conf.filename.clone()
     };
 
-    let opts = RunOpts::new().with_dry_run(conf.dry_run).with_features(conf.features.clone());
+    let opts = RunOpts::new()
+        .with_dry_run(conf.dry_run)
+        .with_features(conf.features.clone())
+        .with_verbosity(conf.verbose);
     let mut eng = Engine::new(conf.verbose, &conf.logfile);
     eng.set_free_args(&conf.args);
     if let Err(e) = eng.load_file(&filename, &opts) {

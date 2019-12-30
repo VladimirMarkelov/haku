@@ -15,8 +15,10 @@ use crate::var::{VarMgr,VarValue,ExecResult};
 
 const DEFAULT_SECTION: &str = "_default";
 
+#[derive(Clone)]
 pub struct RunOpts {
     pub(crate) feats: Vec<String>,
+    verbosity: usize,
     dry_run: bool
 }
 
@@ -25,6 +27,7 @@ impl RunOpts {
         RunOpts {
             dry_run: false,
             feats: Vec::new(),
+            verbosity: 0,
         }
     }
 
@@ -38,6 +41,13 @@ impl RunOpts {
     pub fn with_features(self, feats: Vec<String>) -> Self {
         RunOpts {
             feats,
+            ..self
+        }
+    }
+
+    pub fn with_verbosity(self, verbosity: usize) -> Self {
+        RunOpts {
+            verbosity,
             ..self
         }
     }
@@ -97,6 +107,8 @@ pub struct Engine {
     verbosity: usize,
     logfile: String,
     varmgr: VarMgr,
+    shell: Vec<String>,
+    opts: RunOpts,
 
     cond_stack: Vec<CondItem>,
     real_line: usize,
@@ -118,6 +130,11 @@ struct RecipeItem {
 
 impl Engine {
     pub fn new(verbosity: usize, logfile: &str) -> Self {
+        #[cfg(windows)]
+        let shell = vec!["powershell".to_string(), "-c".to_string()];
+        #[cfg(not(windows))]
+        let shell = vec!["sh".to_string(), "-cu".to_string()];
+
         let eng = Engine {
             files: Vec::new(),
             included: Vec::new(),
@@ -127,6 +144,8 @@ impl Engine {
             varmgr: VarMgr::new(),
             cond_stack: Vec::new(),
             real_line: usize::MAX,
+            opts: RunOpts::new(),
+            shell,
         };
         eng.init_logging();
         eng
@@ -329,6 +348,7 @@ impl Engine {
     }
 
     pub fn run_recipe(&mut self, name: &str, opts: RunOpts) -> Result<(), HakuError> {
+        self.opts = opts.clone();
         debug!("Running SECTION '{}'", name);
         let sec_res = if name.is_empty() {
             match self.find_recipe(DEFAULT_SECTION) {
@@ -347,6 +367,31 @@ impl Engine {
         Ok(())
     }
 
+    fn system_call(&mut self, name: &str, ops: &[Op], idx: usize) -> Result<bool, HakuError> {
+        let lowname = name.to_lowercase();
+        match lowname.as_str() {
+            "shell" => {
+                let v: Vec<String> = ops.iter()
+                    .map(|a|
+                        match self.exec_op(a) {
+                            Err(_) => String::new(),
+                            Ok(res) => res.to_string(),
+                        })
+                    .filter(|a| !a.is_empty())
+                    .collect();
+                if v.is_empty() {
+                    return Err(HakuError::EmptyShellArgError(HakuError::err_line(idx)));
+                }
+                if self.opts.verbosity > 0 {
+                    println!("Setting new shell: {:?}", v);
+                }
+                self.shell = v;
+                Ok(true)
+            },
+            _ => Ok(false),
+        }
+    }
+
     fn exec_file_init(&mut self, file: usize) -> Result<(), HakuError> {
         // let mut pass = true;
         let cnt = self.files[file].ops.len();
@@ -363,7 +408,13 @@ impl Engine {
                 Op::EitherAssign(chk, name, ops) => { self.exec_either_assign(chk, &name, &ops)?; i += 1; },
                 Op::DefAssign(name, ops) => { self.exec_assign_or(&name, &ops)?; i += 1; },
                 Op::Assign(name, ops) => { self.exec_assign(&name, &ops)?; i += 1; },
-                Op::Func(name, ops) => { self.exec_func(&name, &ops)?; i += 1; }, // top level - func value is dropped
+                Op::Func(name, ops) => {
+                    let is_processed = self.system_call(&name, &ops, i)?;
+                    if !is_processed {
+                        self.exec_func(&name, &ops)?;
+                    }
+                    i += 1;
+                }, // top level - func value is dropped
                 Op::StmtClose => { let next = self.exec_end()?; if next == 0 {i += 1;} else { i = next; }},
                 Op::For(name, seq) => {
                     let ok = self.exec_for(&name, seq, i)?;
@@ -483,7 +534,13 @@ impl Engine {
                 Op::EitherAssign(chk, name, ops) => { self.exec_either_assign(chk, &name, &ops)?; idx += 1; },
                 Op::DefAssign(name, ops) => { self.exec_assign_or(&name, &ops)?; idx += 1; },
                 Op::Assign(name, ops) => { self.exec_assign(&name, &ops)?; idx += 1; },
-                Op::Func(name, ops) => { self.exec_func(&name, &ops)?; idx += 1; }, // top level - func value is dropped
+                Op::Func(name, ops) => {
+                    let is_processed = self.system_call(&name, &ops, idx)?;
+                    if !is_processed {
+                        self.exec_func(&name, &ops)?;
+                    }
+                    idx += 1;
+                }, // top level - func value is dropped
                 Op::StmtClose => { let next = self.exec_end()?; if next == 0 { idx += 1} else { idx = next; }},
                 Op::For(name, seq) => {
                     let ok = self.exec_for(&name, seq, idx)?;
@@ -566,9 +623,12 @@ impl Engine {
             code: 0,
             stdout: String::new(),
         };
-        let out = match Command::new("powershell")
-            .arg("-c")
-            .arg(&cmdline).output() {
+        let mut cmd = Command::new(&self.shell[0]);
+        for arg in self.shell[1..].iter() {
+            cmd.arg(arg);
+        }
+        cmd.arg(&cmdline);
+        let out = match cmd.output() {
             Ok(o) => o,
             Err(e) => return Err(HakuError::ExecFailureError(cmdline, e.to_string(), HakuError::err_line(self.real_line))),
         };
@@ -596,10 +656,12 @@ impl Engine {
             println!("{}", cmdline);
         }
 
-        let result = Command::new("powershell")
-            .arg("-c")
-            .arg(&cmdline)
-            .status();
+        let mut cmd = Command::new(&self.shell[0]);
+        for arg in self.shell[1..].iter() {
+            cmd.arg(arg);
+        }
+        cmd.arg(&cmdline);
+        let result = cmd.status();
         let st = match result {
             Ok(exit_status) => exit_status,
             Err(e) => {
