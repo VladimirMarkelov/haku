@@ -2,9 +2,7 @@ use std::convert::From;
 use std::env;
 use std::usize;
 
-use log::{debug, info, trace, warn};
-
-// use crate::errors::HakuError;
+use crate::{output};
 
 #[derive(Clone,Debug,PartialEq)]
 pub struct ExecResult {
@@ -305,70 +303,72 @@ pub(crate) struct VarMgr {
     pub(crate) free: Vec<String>,
     pub(crate) recipe_vars: Vec<Var>,
     vars: Vec<Var>,
+    verbosity: usize,
 }
 
 impl VarMgr {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(verbosity: usize) -> Self {
         VarMgr {
             recipe_vars: Vec::new(),
             vars: Vec::new(),
             free: Vec::new(),
+            verbosity,
         }
     }
 
     pub(crate) fn set_recipe_var(&mut self, name: &str, val: VarValue) {
-        debug!("Setting recipe var {}", name);
+        output!(self.verbosity, 2, "Setting recipe var {}", name);
         for v in self.recipe_vars.iter_mut() {
             if v.name == name {
-                debug!("Changing recipe {} to {:?}", name, val);
+                output!(self.verbosity, 2, "Changing recipe {} to {:?}", name, val);
                 v.value = val;
                 return;
             }
         }
-        debug!("New recipe var {}: {:?}", name, val);
+        output!(self.verbosity, 2, "New recipe var {}: {:?}", name, val);
         self.recipe_vars.push(Var{name: name.to_string(), value: val});
     }
 
     pub(crate) fn set_var(&mut self, name: &str, val: VarValue) {
-        debug!("Setting a var {}", name);
+        output!(self.verbosity, 2, "Setting a var {}", name);
         for v in self.recipe_vars.iter_mut() {
             if v.name == name {
-                debug!("Changing recipe {} to {:?}", name, val);
+                output!(self.verbosity, 2, "Changing recipe {} to {:?}", name, val);
                 v.value = val;
                 return;
             }
         }
         for v in self.vars.iter_mut() {
             if v.name == name {
-                debug!("Changing var {} to {:?}", name, val);
+                output!(self.verbosity, 2, "Changing var {} to {:?}", name, val);
                 v.value = val;
                 return;
             }
         }
-        debug!("New var {}: {:?}", name, val);
+        output!(self.verbosity, 2, "New var {}: {:?}", name, val);
         self.vars.push(Var{name: name.to_string(), value: val});
     }
 
     pub(crate) fn var(&self, name: &str) -> VarValue {
         for v in self.recipe_vars.iter() {
             if v.name == name {
-                debug!("Local recipe var {} found", name);
+                output!(self.verbosity, 2, "Local recipe var {} found", name);
                 return v.value.clone();
             }
         }
         for v in self.vars.iter() {
             if v.name == name {
-                debug!("Global var {} found", name);
+                output!(self.verbosity, 2, "Global var {} found", name);
                 return v.value.clone();
             }
         }
 
         if let Ok(s) = env::var(name) {
-            debug!("Use environment variable {}", name);
+            output!(self.verbosity, 2, "Use environment variable {}", name);
             return VarValue::Str(s);
         }
 
-        debug!("Variable {} not found", name);
+        output!(self.verbosity, 2, "Variable {} not found", name);
         VarValue::Undefined
     }
 

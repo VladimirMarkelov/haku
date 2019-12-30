@@ -12,6 +12,4 @@ pest_derive = "2.0"
 target = "1.0"
 thiserror = "1.0"
 chrono = "0.4"
-log = { version = "0.4", features = ["std"] }
-fern = "0.5"
 dirs = "2.0"

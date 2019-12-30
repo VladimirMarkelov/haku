@@ -98,9 +98,9 @@ fn main() -> Result<(), HakuError> {
         .with_dry_run(conf.dry_run)
         .with_features(conf.features.clone())
         .with_verbosity(conf.verbose);
-    let mut eng = Engine::new(conf.verbose, &conf.logfile);
+    let mut eng = Engine::new(opts);
     eng.set_free_args(&conf.args);
-    if let Err(e) = eng.load_file(&filename, &opts) {
+    if let Err(e) = eng.load_file(&filename) {
         eprintln!("{}", e);
         exit(1);
     }
@@ -110,7 +110,7 @@ fn main() -> Result<(), HakuError> {
         exit(0);
     }
 
-    let res = eng.run_recipe(&conf.recipe, opts);
+    let res = eng.run_recipe(&conf.recipe);
     match res {
         Err(e) => {
             eprintln!("{}", e);

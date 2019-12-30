@@ -1,11 +1,8 @@
 use std::convert::From;
 use std::fmt;
 use std::process::Command;
-use std::io;
 use std::iter::FromIterator;
 use std::usize;
-
-use log::{debug, info, trace, warn};
 
 use crate::parse::{HakuFile,DisabledRecipe};
 use crate::errors::HakuError;
@@ -14,6 +11,25 @@ use crate::func::{run_func};
 use crate::var::{VarMgr,VarValue,ExecResult};
 
 const DEFAULT_SECTION: &str = "_default";
+
+#[macro_export]
+macro_rules! output {
+    ($v:expr, $lvl:literal, $fmt:literal) => {
+        if $v >= $lvl {
+            println!($fmt);
+        }
+    };
+    ($v:expr, $lvl:literal, $fmt:literal, $vals:expr) => {
+        if $v >= $lvl {
+            println!($fmt, $vals);
+        }
+    };
+    ($v:expr, $lvl:literal, $fmt:literal, $($vals:expr),+) => {
+        if $v >= $lvl {
+            println!($fmt, $($vals), +);
+        }
+    };
+}
 
 #[derive(Clone)]
 pub struct RunOpts {
@@ -104,8 +120,6 @@ pub struct Engine {
     files: Vec<HakuFile>, // Hakufile in order of includes
     included: Vec<String>, // which files were included to catch recursion
     recipes: Vec<RecipeDesc>,
-    verbosity: usize,
-    logfile: String,
     varmgr: VarMgr,
     shell: Vec<String>,
     opts: RunOpts,
@@ -129,7 +143,7 @@ struct RecipeItem {
 }
 
 impl Engine {
-    pub fn new(verbosity: usize, logfile: &str) -> Self {
+    pub fn new(opts: RunOpts) -> Self {
         #[cfg(windows)]
         let shell = vec!["powershell".to_string(), "-c".to_string()];
         #[cfg(not(windows))]
@@ -139,101 +153,32 @@ impl Engine {
             files: Vec::new(),
             included: Vec::new(),
             recipes: Vec::new(),
-            verbosity,
-            logfile: logfile.to_string(),
-            varmgr: VarMgr::new(),
+            varmgr: VarMgr::new(opts.verbosity),
             cond_stack: Vec::new(),
             real_line: usize::MAX,
-            opts: RunOpts::new(),
+            opts,
             shell,
         };
-        eng.init_logging();
         eng
     }
 
-    fn init_logging(&self) {
-        if self.verbosity == 0 {
-            return;
-        }
-        let logfile = if self.logfile.is_empty() {
-            "haku.log"
-        } else {
-            &self.logfile
-        };
-
-        let mut base_config = fern::Dispatch::new();
-        base_config = match self.verbosity {
-            0 => base_config
-                    .level(log::LevelFilter::Info)
-                    .level_for("overly-verbose-target", log::LevelFilter::Warn),
-            1 => base_config
-                    .level(log::LevelFilter::Debug)
-                    .level_for("overly-verbose-target", log::LevelFilter::Info),
-            2 => base_config.level(log::LevelFilter::Debug),
-            _ => base_config.level(log::LevelFilter::Trace),
-        };
-        let flog = match fern::log_file(logfile) {
-            Ok(fl) => fl,
-            Err(e) => {
-                eprintln!("Failed to initialize log: {:?}", e);
-                return;
-            }
-        };
-        let file_config = fern::Dispatch::new()
-            .format(|out, message, record| {
-                let lvl = format!("{}", record.level());
-                out.finish(format_args!(
-                        "{}{} {}",
-                        lvl.chars().next().unwrap(),
-                        chrono::Local::now().format("[%y-%m-%d %H:%M:%S%.3f]"),
-                        message
-                ))
-            })
-            .chain(flog);
-
-        if self.verbosity < 2 {
-            if let Err(e) = base_config.chain(file_config).apply() {
-                eprintln!("Failed to initialize log: {:?}", e);
-            }
-            return;
-        }
-        let stdout_config = fern::Dispatch::new()
-            .format(|out, message, record| {
-                let lvl = format!("{}", record.level());
-                out.finish(format_args!(
-                    "{}[{}] {}",
-                        lvl.chars().next().unwrap(),
-                    chrono::Local::now().format("%H:%M:%S%.3f"),
-                    message
-                ))
-            })
-            .chain(io::stdout());
-
-        if let Err(e) = base_config
-            .chain(file_config)
-            .chain(stdout_config)
-            .apply() {
-                eprintln!("Failed to initialize log: {:?}", e);
-        }
-    }
-
-    pub fn load_file(&mut self, filepath: &str, opts: &RunOpts) -> Result<(), HakuError> {
-        debug!("Loading file: {}", filepath);
+    pub fn load_file(&mut self, filepath: &str) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 2, "Loading file: {}", filepath);
         for s in &self.included {
             if s == filepath {
                 return Err(HakuError::IncludeRecursionError(filepath.to_string()));
             }
         }
-        let hk = HakuFile::load_file(filepath, opts)?;
+        let hk = HakuFile::load_file(filepath, &self.opts)?;
         self.files.push(hk);
         self.included.push(filepath.to_string());
-        self.run_header(self.files.len()-1, opts)?;
+        self.run_header(self.files.len()-1)?;
         self.detect_recipes();
         Ok(())
     }
 
-    fn run_header(&mut self, idx: usize, opts: &RunOpts) -> Result<(), HakuError> {
-        debug!("RUN HEADER: {}: {}", idx, self.files[idx].ops.len());
+    fn run_header(&mut self, idx: usize) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 3, "RUN HEADER: {}: {}", idx, self.files[idx].ops.len());
         let mut to_include: Vec<String> = Vec::new();
         let mut to_include_flags: Vec<u32> = Vec::new();
         for op in &self.files[idx].ops {
@@ -243,18 +188,20 @@ impl Engine {
                 Op::Recipe(_,_,_,_) => break,
                 Op::Comment(_) | Op::DocComment(_) => { /* just continue */ },
                 Op::Include(flags, path) => {
-                    debug!("        !!INCLUDE - {}", path);
+                    output!(self.opts.verbosity, 3, "        !!INCLUDE - {}", path);
                     to_include.push(path.to_string());
                     to_include_flags.push(*flags);
                 },
                 _ => { /*run = true */ },
             }
         }
-        debug!("TO INCLUDE: {}", to_include.len());
+        output!(self.opts.verbosity, 3, "TO INCLUDE: {}", to_include.len());
         for (i, path) in to_include.iter().enumerate() {
             let f = to_include_flags[i];
-            let res = self.load_file(path, opts);
-            debug!("ERROR: {:?}", res);
+            let res = self.load_file(path);
+            if res.is_err() {
+                output!(self.opts.verbosity, 2, "ERROR: {:?}", res);
+            }
             if res.is_err() && !is_flag_on(f, FLAG_PASS) {
                 return res;
             }
@@ -347,9 +294,8 @@ impl Engine {
         self.varmgr.free = Vec::from_iter(args.iter().cloned());
     }
 
-    pub fn run_recipe(&mut self, name: &str, opts: RunOpts) -> Result<(), HakuError> {
-        self.opts = opts.clone();
-        debug!("Running SECTION '{}'", name);
+    pub fn run_recipe(&mut self, name: &str) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 1, "Running SECTION '{}'", name);
         let sec_res = if name.is_empty() {
             match self.find_recipe(DEFAULT_SECTION) {
                 Ok(loc) => Some(loc),
@@ -382,9 +328,7 @@ impl Engine {
                 if v.is_empty() {
                     return Err(HakuError::EmptyShellArgError(HakuError::err_line(idx)));
                 }
-                if self.opts.verbosity > 0 {
-                    println!("Setting new shell: {:?}", v);
-                }
+                output!(self.opts.verbosity, 1, "Setting new shell: {:?}", v);
                 self.shell = v;
                 Ok(true)
             },
@@ -439,7 +383,7 @@ impl Engine {
                 Op::Else => { i = self.exec_else(file, i)?; },
                 Op::ElseIf(ops) => { i = self.exec_elseif(&ops, file, i)?; }, // must have exact 1 op
                 _ => {
-                    debug!("UNIMPLEMENTED: {:?}", op);
+                    eprintln!("UNIMPLEMENTED: {:?}", op);
                     i += 1;
                 },
             }
@@ -463,7 +407,7 @@ impl Engine {
             vars: Vec::new(),
             flags: 0,
         };
-        debug!("Checking recipe: {:?}", op);
+        output!(self.opts.verbosity, 2, "Checking recipe: {:?}", op);
         let mut vc: Vec<RecipeItem> = Vec::new();
         let mut parents: Vec<String> = match parent {
             None => Vec::new(),
@@ -503,13 +447,13 @@ impl Engine {
     }
 
     fn exec_recipe(&mut self, loc: RecipeLoc) -> Result<(), HakuError> {
-        debug!("Start recipe [{}:{}]", loc.file, loc.line);
+        output!(self.opts.verbosity, 2, "Start recipe [{}:{}]", loc.file, loc.line);
         let sec = self.push_recipe(loc, None, None)?;
-        debug!("recipe call stack: {:?}", sec);
+        output!(self.opts.verbosity, 2, "recipe call stack: {:?}", sec);
         let mut idx = 0;
         while idx < sec.len() {
             let op = &sec[idx];
-            debug!("Starting recipe: {}", op.name);
+            output!(self.opts.verbosity, 1, "Starting recipe: {}", op.name);
             self.enter_recipe(op);
             self.exec_from(op.loc.file, op.loc.line+1, op.flags)?;
             self.leave_recipe();
@@ -651,7 +595,7 @@ impl Engine {
     fn exec_cmd_shell(&mut self, flags: u32, cmdline: &str, line: usize) -> Result<(), HakuError> {
         let no_fail = is_flag_on(flags, FLAG_PASS);
         let cmdline = self.varmgr.interpolate(&cmdline, true);
-        debug!("ExecShell[{}]: {}", no_fail, cmdline);
+        output!(self.opts.verbosity, 2, "ExecShell[{}]: {}", no_fail, cmdline);
         if !is_flag_on(flags, FLAG_QUIET) {
             println!("{}", cmdline);
         }
@@ -697,7 +641,6 @@ impl Engine {
         for op in ops.iter() {
             let v = self.exec_op(op)?;
             if v.is_true() {
-                debug!("{:?} -> true", op);
                 self.varmgr.set_var(name, v);
                 return Ok(());
             }
@@ -764,14 +707,14 @@ impl Engine {
     }
 
     fn exec_func(&mut self, name: &str, ops: &[Op]) -> Result<VarValue, HakuError> {
-        debug!("Exec func {}", name);
+        output!(self.opts.verbosity, 2, "Exec func {}", name);
         let mut args: Vec<VarValue> = Vec::new();
         for op in ops.iter() {
             let v = self.exec_op(op)?;
             args.push(v);
         }
         let r = run_func(name, &args);
-        debug!("func {} with {} args returned {:?}", name, ops.len(), r);
+        output!(self.opts.verbosity, 3, "func {} with {} args returned {:?}", name, ops.len(), r);
         match r {
             Ok(r) => Ok(r),
             Err(s) => Err(HakuError::FunctionError(format!("{}: {}", s, HakuError::err_line(self.real_line)))),
@@ -779,15 +722,15 @@ impl Engine {
     }
 
     fn exec_if(&mut self, ops: &[Op], file: usize, idx: usize) -> Result<usize, HakuError> {
-        debug!("Exec if");
+        output!(self.opts.verbosity, 3, "Exec if");
         assert!(ops.len() == 1);
         let v = self.exec_op(&ops[0])?;
         if v.is_true() {
-            debug!("   if == true");
+            output!(self.opts.verbosity, 3, "   if == true");
             self.cond_stack.push(CondItem{line: idx, cond: Condition::If(true)});
             Ok(idx+1)
         } else {
-            debug!("   if == false -> look for else/end");
+            output!(self.opts.verbosity, 3, "   if == false -> look for else/end");
             let (is_end, else_idx) = self.find_else(file, idx+1, "if")?;
             if !is_end {
                 self.cond_stack.push(CondItem{line: idx, cond: Condition::If(false)});
@@ -797,7 +740,7 @@ impl Engine {
     }
 
     fn exec_else(&mut self, file: usize, idx: usize) -> Result<usize, HakuError> {
-        debug!("Exec else");
+        output!(self.opts.verbosity, 3, "Exec else");
         if self.cond_stack.is_empty() {
             return Err(HakuError::StrayElseError(HakuError::err_line(self.real_line)));
         }
@@ -815,7 +758,7 @@ impl Engine {
     }
 
     fn exec_elseif(&mut self, ops: &[Op], file: usize, idx: usize) -> Result<usize, HakuError> {
-        debug!("Exec elseif");
+        output!(self.opts.verbosity, 3, "Exec elseif");
         if self.cond_stack.is_empty() {
             return Err(HakuError::StrayElseIfError(HakuError::err_line(self.real_line)));
         }
@@ -846,23 +789,20 @@ impl Engine {
     }
 
     fn exec_while(&mut self, ops: &[Op], idx: usize) -> Result<bool, HakuError> {
-        debug!("Exec while {:?}", ops);
+        output!(self.opts.verbosity, 3, "Exec while {:?}", ops);
         assert!(ops.len() == 1);
         let v = self.exec_op(&ops[0])?;
         if v.is_true() {
-            debug!("   while == true");
             let lst: Vec<Op> = ops.iter().cloned().collect();
             self.cond_stack.push(CondItem{line: idx, cond: Condition::While(lst)});
-        } else {
-            debug!("   while == false -> look for end");
         }
         Ok(v.is_true())
     }
 
     fn exec_end(&mut self) -> Result<usize, HakuError> {
-        debug!("Exec end");
+        output!(self.opts.verbosity, 3, "Exec end");
         if let Some(op) = self.cond_stack.pop() {
-            debug!("END OP >> {:?}", op);
+            output!(self.opts.verbosity, 3, "END OP >> {:?}", op);
             match op.cond {
                 Condition::If(_) => return Ok(0), // just continue
                 Condition::While(ref ops) => {
@@ -878,7 +818,7 @@ impl Engine {
                     }
                 },
                 Condition::ForList(var, mut vals) => {
-                    debug!("END FOR LIST: {} = {:?}", var, vals);
+                    output!(self.opts.verbosity, 3, "END FOR LIST: {} = {:?}", var, vals);
                     if vals.is_empty() {
                         return Ok(0);
                     }
@@ -890,7 +830,7 @@ impl Engine {
                 },
                 Condition::ForInt(var, mut curr, end, step) => {
                     curr += step;
-                    debug!("END FOR INT: {} of {}", curr, end);
+                    output!(self.opts.verbosity, 3, "END FOR INT: {} of {}", curr, end);
                     if (step > 0 && curr >= end) || (step < 0 && curr <= end) {
                         return Ok(0);
                     }
@@ -905,7 +845,7 @@ impl Engine {
     }
 
     fn exec_break(&mut self, file: usize) -> Result<usize, HakuError> {
-        debug!("Exec break");
+        output!(self.opts.verbosity, 3, "Exec break");
         while let Some(cnd) = self.cond_stack.pop() {
             match cnd.cond {
                 Condition::If(_) => continue,
@@ -916,7 +856,7 @@ impl Engine {
     }
 
     fn exec_continue(&mut self, file: usize) -> Result<usize, HakuError> {
-        debug!("Exec continue");
+        output!(self.opts.verbosity, 3, "Exec continue");
         let mut next: usize = usize::MAX;
         while let Some(cnd) = self.cond_stack.pop() {
             match cnd.cond {
@@ -937,10 +877,10 @@ impl Engine {
     }
 
     fn exec_for(&mut self, name: &str, seq: Seq, idx: usize) -> Result<bool, HakuError> {
-        debug!("Exec for");
+        output!(self.opts.verbosity, 3, "Exec for");
         match seq {
             Seq::Int(start, end, step) => {
-                debug!("  FOR: from {} to {} step {}", start, end, step);
+                output!(self.opts.verbosity, 3, "  FOR: from {} to {} step {}", start, end, step);
                 if (step > 0 && end <= start) || (step < 0 && end >= start) {
                     // look for an END
                     return Ok(false);
@@ -959,7 +899,7 @@ impl Engine {
                 } else {
                     s.split_ascii_whitespace().map(|s| s.to_string()).collect()
                 };
-                debug!("   FOR whitespace: {:?}", v);
+                output!(self.opts.verbosity, 3, "   FOR whitespace: {:?}", v);
                 if v.is_empty() {
                     return Ok(false);
                 }
@@ -969,7 +909,7 @@ impl Engine {
                 return Ok(true);
             },
             Seq::Idents(ids) => {
-                debug!("  FOR idents: {:?}", ids);
+                output!(self.opts.verbosity, 3, "  FOR idents: {:?}", ids);
                 if ids.is_empty() {
                     return Ok(false);
                 }
@@ -983,7 +923,7 @@ impl Engine {
                     Ok(res) => {
                         if res.code == 0 {
                             let mut v: Vec<String> = res.stdout.lines().map(|s| s.trim_end().to_string()).collect();
-                            debug!("   FOR lines: {:?}", v);
+                            output!(self.opts.verbosity, 3, "   FOR lines: {:?}", v);
                             if v.is_empty() {
                                 return Ok(false);
                             }
@@ -992,11 +932,11 @@ impl Engine {
                             self.cond_stack.push(CondItem{line: idx, cond: Condition::ForList(name.to_string(), v)});
                             return Ok(true);
                         } else {
-                            debug!("   FOR lines: FAILURE");
+                            output!(self.opts.verbosity, 3, "   FOR lines: FAILURE");
                         };
                     },
                     Err(_) => {
-                            debug!("   FOR lines: FAILURE[2]");
+                            output!(self.opts.verbosity, 3, "   FOR lines: FAILURE[2]");
                     },
                 }
             },
@@ -1048,7 +988,7 @@ impl Engine {
     }
 
     fn enter_recipe(&mut self, recipe: &RecipeItem) {
-        debug!("enter section. Vars {:?}, Free {:?}", recipe.vars, self.varmgr.free);
+        output!(self.opts.verbosity, 2, "enter section. Vars {:?}, Free {:?}", recipe.vars, self.varmgr.free);
         if recipe.vars.is_empty() || self.varmgr.free.is_empty() {
             return;
         }

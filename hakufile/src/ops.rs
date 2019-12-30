@@ -3,8 +3,6 @@ use pest::iterators::{Pair, Pairs};
 use crate::parse::{Rule};
 use crate::errors::HakuError;
 
-use log::{debug, info, trace, warn};
-
 #[derive(Debug,Clone)]
 pub enum Seq {
     Int(i64, i64, i64), // 1..2..3
@@ -182,7 +180,6 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                         _ => unimplemented!(),
                     }
                 }
-                debug!("FOR: {} - {} -> {}", start, end, step);
                 let istart = if let Ok(i) = start.parse::<i64>() {
                     i
                 } else {

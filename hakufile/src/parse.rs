@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::{BufReader, BufRead};
 
 use pest::Parser;
-use log::{debug, info, trace, warn};
 
 use crate::feature::process_feature;
 use crate::errors::HakuError;
@@ -167,10 +166,6 @@ impl HakuFile {
             }
         }
         hk.remove_dead_code();
-        debug!("After cleanup:");
-        for op in hk.ops.iter() {
-            debug!("    {:?}", op);
-        }
         Ok(hk)
     }
 

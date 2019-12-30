@@ -3,7 +3,6 @@ use std::ffi::OsStr;
 use std::env;
 
 use target::{arch, os, os_family, endian, pointer_width};
-use log::{debug, info, trace, warn};
 use dirs;
 use chrono;
 
