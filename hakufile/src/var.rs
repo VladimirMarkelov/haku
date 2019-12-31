@@ -112,6 +112,42 @@ impl VarValue {
             VarValue::Exec(er) => er.code == 0,
         }
     }
+
+    pub(crate) fn to_int(&self) -> i64 {
+        match self {
+            VarValue::Undefined => 0,
+            VarValue::Int(i) => *i,
+            VarValue::Str(s) => if s.is_empty() {
+                0
+            } else {
+                match s.parse::<i64>() {
+                    Err(_) => 0,
+                    Ok(v) => v,
+                }
+            },
+            VarValue::List(v) => if v.is_empty() || v[0].is_empty() {
+                0
+            } else {
+                match v[0].parse::<i64>() {
+                    Err(_) => 0,
+                    Ok(v) => v,
+                }
+            },
+            VarValue::Exec(ex) => if ex.stdout.is_empty() {
+                0
+            } else {
+                if let Some(s) = ex.stdout.lines().next() {
+                    let strim = s.trim();
+                    match strim.parse::<i64>() {
+                        Err(_) => 0,
+                        Ok(i) => i,
+                    }
+                } else {
+                    0
+                }
+            },
+        }
+    }
     fn cmp_eq(&self, val: &VarValue) -> bool {
         match self {
             VarValue::Undefined => match val {

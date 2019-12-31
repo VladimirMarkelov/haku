@@ -5,6 +5,8 @@ use std::env;
 use target::{arch, os, os_family, endian, pointer_width};
 use dirs;
 use chrono;
+use regex::Regex;
+use unicode_width::UnicodeWidthStr;
 
 use crate::var::{VarValue};
 
@@ -92,6 +94,10 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "upcase" => change_case(args, StrCase::Up),
         "contains" => contains(args),
         "replace" => replace(args),
+        "match" => match_regex(args),
+        "pad-center" | "pad_center" => pad(args, Where::All),
+        "pad-left" | "pad_left" => pad(args, Where::Left),
+        "pad-right" | "pad_right" => pad(args, Where::Right),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -367,6 +373,60 @@ fn replace(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(s.replace(&what, &with)))
 }
 
+fn match_regex(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Ok(VarValue::from(1));
+    }
+
+    let s = args[0].to_string();
+    for a in args[1..].iter() {
+        let rx = a.to_string();
+        match Regex::new(&rx) {
+            Err(e) => return Err(e.to_string()),
+            Ok(r) => if r.is_match(&s) {
+                return Ok(VarValue::Int(1));
+            },
+        }
+    }
+    Ok(VarValue::Int(0))
+}
+
+fn pad(args: &[VarValue], loc: Where) -> FuncResult {
+    if args.len() < 3 {
+        return Err("requires three arguments".to_string());
+    }
+
+    let patt = args[1].to_string();
+    let patt_width = patt.width() as usize;
+    if patt_width == 0 {
+        return Err("pad string cannot be empty".to_string());
+    }
+    let l = args[2].to_int() as usize;
+    let s = args[0].to_string();
+    let orig_width = s.width() as usize;
+
+    if orig_width + patt_width >= l {
+        return Ok(VarValue::from(s));
+    }
+
+    let cnt = (l - orig_width) / patt_width;
+
+    let res = match loc {
+        Where::All => {
+            let right = cnt / 2;
+            let left = cnt - right;
+            patt.repeat(left) + &s + &patt.repeat(right)
+        },
+        Where::Left => {
+            patt.repeat(cnt) + &s
+        },
+        Where::Right => {
+            s + &patt.repeat(cnt)
+        }
+    };
+    Ok(VarValue::from(res))
+}
+
 #[cfg(test)]
 mod path_test {
     use super::*;
@@ -536,5 +596,58 @@ mod path_test {
         let v = vec![VarValue::from("abc def"), VarValue::from("bc"), VarValue::from("eFG")];
         let r = replace(&v);
         assert_eq!(r, Ok(VarValue::from("aeFG def")));
+    }
+
+    #[test]
+    fn matches() {
+        let v = vec![VarValue::from("aBc DeF")];
+        let r = match_regex(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::from("abc def"), VarValue::from("bc")];
+        let r = match_regex(&v);
+        assert_eq!(r, Ok(VarValue::from(1)));
+        let v = vec![VarValue::from("abc def"), VarValue::from("b.*e")];
+        let r = match_regex(&v);
+        assert_eq!(r, Ok(VarValue::from(1)));
+        let v = vec![VarValue::from("abc def"), VarValue::from("b.*g")];
+        let r = match_regex(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let v = vec![VarValue::from("abc def"), VarValue::from("b.*g"), VarValue::from("d[mge]+")];
+        let r = match_regex(&v);
+        assert_eq!(r, Ok(VarValue::from(1)));
+    }
+
+    #[test]
+    fn pads() {
+        let v = vec![VarValue::from("abc")];
+        let r = pad(&v, Where::All);
+        assert!(r.is_err());
+        let v = vec![VarValue::from("abc"), VarValue::from("+=")];
+        let r = pad(&v, Where::All);
+        assert!(r.is_err());
+        let v = vec![VarValue::from("abc"), VarValue::from("")];
+        let r = pad(&v, Where::All);
+        assert!(r.is_err());
+
+        let v = vec![VarValue::from("abc"), VarValue::from("+="), VarValue::from("aa")];
+        let r = pad(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::from("abc")));
+        let v = vec![VarValue::from("abc"), VarValue::from("+="), VarValue::from(0)];
+        let r = pad(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::from("abc")));
+        let v = vec![VarValue::from("abc"), VarValue::from("+="), VarValue::from(2)];
+        let r = pad(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::from("abc")));
+        let v = vec![VarValue::from("abc"), VarValue::from("+="), VarValue::from(10)];
+        let r = pad(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::from("+=+=abc+=")));
+        let r = pad(&v, Where::Left);
+        assert_eq!(r, Ok(VarValue::from("+=+=+=abc")));
+        let r = pad(&v, Where::Right);
+        assert_eq!(r, Ok(VarValue::from("abc+=+=+=")));
+
+        let v = vec![VarValue::from("abc"), VarValue::from("+="), VarValue::from(11)];
+        let r = pad(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::from("+=+=abc+=+=")));
     }
 }
