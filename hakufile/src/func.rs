@@ -7,6 +7,7 @@ use dirs;
 use chrono;
 use regex::Regex;
 use unicode_width::UnicodeWidthStr;
+use rand::prelude::*;
 
 use crate::var::{VarValue};
 
@@ -17,15 +18,8 @@ use crate::var::{VarValue};
 // os_family: unix, windows
 // pointer_width: 32, 64
 // endian: big, little
-//
-// file'n'dir functions
-//   test: is_file, is_dir, exists
-//   parts: stem, ext, dir, base
-//   change: with_ext, with_stem, with_filename, add_ext
-//   user: home, config_dir, doc_dir, desktop_dir, temp
-//   misc: path_join
-//   util: print
-//   time: format
+
+const LETTERS: &str = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 type FuncResult = Result<VarValue, String>;
 enum CheckType {
@@ -100,6 +94,7 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "pad-right" | "pad_right" => pad(args, Where::Right),
         "field" | "fields" => fields(args),
         "field-sep" | "fields-sep" | "field_sep" | "fields_sep" => fields_with_sep(args),
+        "rand-str" | "rand_str" => rand_string(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -482,6 +477,39 @@ fn fields_with_sep(args: &[VarValue]) -> FuncResult {
     }
 }
 
+fn rand_string(args: &[VarValue]) -> FuncResult {
+    if args.is_empty() {
+        return Err("requires at least one argument".to_string());
+    }
+
+    let l = args[0].to_int();
+    if l <= 0 {
+        return Err("lenght must be greater than 0".to_string());
+    }
+    let ls = l as usize;
+    let chr: Vec<char> = if args.len() == 1 {
+        LETTERS.chars().collect()
+    } else {
+        let arg2 = args[1].to_string();
+        arg2.as_str().chars().collect()
+    };
+    let mx = chr.len();
+    if mx < 10 {
+        let r: String = chr.into_iter().collect();
+        return Err(format!("alphabet '{}' is too short: must have at least 10 characters", r))
+    }
+
+    let mut rng = thread_rng();
+    let mut c: Vec<char> = vec![' '; ls];
+    for idx in 0..ls {
+        let cidx = rng.gen_range(0, mx) as usize;
+        c[idx] = chr[cidx];
+    }
+
+    let s: String = c.into_iter().collect();
+    Ok(VarValue::from(s))
+}
+
 #[cfg(test)]
 mod path_test {
     use super::*;
@@ -738,5 +766,20 @@ mod path_test {
         let v = vec![VarValue::from("abc daf\tahi"), VarValue::from("a"), VarValue::from(1), VarValue::from("asd")];
         let r = fields_with_sep(&v);
         assert_eq!(r, Ok(VarValue::List(vec!["bc d".to_string(), String::new()])));
+    }
+
+    #[test]
+    fn rand() {
+        let v = vec![VarValue::from(10)];
+        let s1 = rand_string(&v);
+        let s2 = rand_string(&v);
+        assert_eq!(s1.clone().unwrap().to_string().len(), 10);
+        assert_eq!(s2.clone().unwrap().to_string().len(), 10);
+        assert_ne!(s1, s2);
+        let v = vec![VarValue::from(10), VarValue::from("0123456789")];
+        let s1 = rand_string(&v);
+        for chr in s1.unwrap().to_string().chars() {
+            assert!(chr >= '0' && chr <= '9');
+        }
     }
 }
