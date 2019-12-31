@@ -465,7 +465,7 @@ mod var_test {
 
     #[test]
     fn var_mgr() {
-        let mut v = VarMgr::new();
+        let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Int(123));
         v.recipe_vars.push(Var{name: "def".to_string(), value: VarValue::Int(10)});
         let v1 = v.var("def");
@@ -484,7 +484,7 @@ mod var_test {
 
     #[test]
     fn interpolate_no_matches() {
-        let mut v = VarMgr::new();
+        let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Str("123".to_string()));
         // no brackets
         let instr = "text $abc end";
@@ -506,7 +506,7 @@ mod var_test {
 
     #[test]
     fn interpolate_one_match() {
-        let mut v = VarMgr::new();
+        let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Str("123".to_string()));
         // escaped $
         let instr = "text $$${abc} end";
@@ -532,7 +532,7 @@ mod var_test {
 
     #[test]
     fn interpolate_few_matches() {
-        let mut v = VarMgr::new();
+        let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Str("123".to_string()));
         v.set_var("def", VarValue::Str("test".to_string()));
         // escaped $
@@ -555,7 +555,7 @@ mod var_test {
 
     #[test]
     fn interpolate_mixed_matches() {
-        let mut v = VarMgr::new();
+        let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Str("123".to_string()));
         v.set_var("def", VarValue::Str("test".to_string()));
         // escaped $
@@ -570,7 +570,7 @@ mod var_test {
 
     #[test]
     fn unescaped() {
-        let v = VarMgr::new();
+        let v = VarMgr::new(0);
         let ostr = v.interpolate("abcde 12345", false);
         assert_eq!(&ostr, "abcde 12345");
         let ostr = v.interpolate("", false);
@@ -583,7 +583,7 @@ mod var_test {
 
     #[test]
     fn mixed_interpolation() {
-        let mut v = VarMgr::new();
+        let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Str("123".to_string()));
         v.set_var("def", VarValue::Str("test".to_string()));
         // slash goes first

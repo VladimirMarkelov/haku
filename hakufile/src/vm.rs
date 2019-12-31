@@ -707,7 +707,7 @@ impl Engine {
     }
 
     fn exec_func(&mut self, name: &str, ops: &[Op]) -> Result<VarValue, HakuError> {
-        output!(self.opts.verbosity, 2, "Exec func {}", name);
+        output!(self.opts.verbosity, 2, "Exec func {}, args: {:?}", name, ops);
         let mut args: Vec<VarValue> = Vec::new();
         for op in ops.iter() {
             let v = self.exec_op(op)?;

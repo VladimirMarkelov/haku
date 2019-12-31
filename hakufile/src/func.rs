@@ -43,6 +43,15 @@ enum SysPath {
     Docs,
     Config,
 }
+enum Where {
+    All,
+    Left,
+    Right,
+}
+enum StrCase {
+    Up,
+    Low,
+}
 
 pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
     let lowstr = name.to_lowercase();
@@ -74,6 +83,15 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "println" => print_all(args, true),
         "time" | "format-time" | "format_time"
             | "time-format" | "time_format" => format_time(args),
+        "trim" => trim_string(args, Where::All),
+        "trim_left" | "trim-left" | "trim_start" | "trim-start" => trim_string(args, Where::Left),
+        "trim_right" | "trim-right" | "trim_end" | "trim-end" => trim_string(args, Where::Right),
+        "starts-with" | "starts_with" => starts_with(args),
+        "ends-with" | "ends_with" => ends_with(args),
+        "lowcase" => change_case(args, StrCase::Low),
+        "upcase" => change_case(args, StrCase::Up),
+        "contains" => contains(args),
+        "replace" => replace(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -248,6 +266,107 @@ fn format_time(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(r))
 }
 
+fn trim_string(args: &[VarValue], dir: Where) -> FuncResult {
+    if args.is_empty() {
+        return Ok(VarValue::Str(String::new()));
+    }
+
+    let s = args[0].to_string();
+    if args.len() == 1 {
+        let st = match dir {
+            Where::All => s.trim(),
+            Where::Left => s.trim_start(),
+            Where::Right => s.trim_end(),
+        };
+        return Ok(VarValue::Str(st.to_string()));
+    }
+
+    let what = args[1].to_string().chars().next();
+    let c = match what {
+        None => return Ok(VarValue::Str(s)),
+        Some(cc) => cc,
+    };
+    let st = match dir {
+        Where::All => s.trim_matches(c),
+        Where::Left => s.trim_start_matches(c),
+        Where::Right => s.trim_end_matches(c),
+    };
+    Ok(VarValue::Str(st.to_string()))
+}
+
+fn starts_with(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Ok(VarValue::Int(1));
+    }
+
+    let s = args[0].to_string();
+    for a in args[1..].iter() {
+        let what = a.to_string();
+        if s.starts_with(&what) {
+            return Ok(VarValue::Int(1));
+        }
+    }
+    Ok(VarValue::Int(0))
+}
+
+fn ends_with(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Ok(VarValue::Int(1));
+    }
+
+    let s = args[0].to_string();
+    for a in args[1..].iter() {
+        let what = a.to_string();
+        if s.ends_with(&what) {
+            return Ok(VarValue::Int(1));
+        }
+    }
+    Ok(VarValue::Int(0))
+}
+
+fn change_case(args: &[VarValue], case: StrCase) -> FuncResult {
+    if args.is_empty() {
+        return Ok(VarValue::Str(String::new()));
+    }
+
+    let s = args[0].to_string();
+    let res = match case {
+        StrCase::Up => s.to_uppercase(),
+        StrCase::Low => s.to_lowercase(),
+    };
+    Ok(VarValue::Str(res))
+}
+
+fn contains(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Ok(VarValue::Int(1));
+    }
+
+    let s = args[0].to_string();
+    for a in args[1..].iter() {
+        let what = a.to_string();
+        if s.find(&what).is_some() {
+            return Ok(VarValue::Int(1));
+        }
+    }
+    Ok(VarValue::Int(0))
+}
+
+fn replace(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Err("requires two arguments".to_string());
+    }
+
+    let s = args[0].to_string();
+    let what = args[1].to_string();
+    let with = if args.len() > 2 {
+        args[2].to_string()
+    } else {
+        String::new()
+    };
+    Ok(VarValue::Str(s.replace(&what, &with)))
+}
+
 #[cfg(test)]
 mod path_test {
     use super::*;
@@ -318,5 +437,104 @@ mod path_test {
         let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string())];
         let r = replace_stem(&v);
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn trims() {
+        let v = vec![VarValue::Str(" \n abc\t   ".to_string())];
+        let r = trim_string(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::Str("abc".to_string())));
+        let r = trim_string(&v, Where::Left);
+        assert_eq!(r, Ok(VarValue::Str("abc\t   ".to_string())));
+        let r = trim_string(&v, Where::Right);
+        assert_eq!(r, Ok(VarValue::Str(" \n abc".to_string())));
+
+        let v = vec![VarValue::Str("++abc===".to_string()), VarValue::Str("+".to_string())];
+        let r = trim_string(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::Str("abc===".to_string())));
+        let v = vec![VarValue::Str("++abc===".to_string()), VarValue::Str("=".to_string())];
+        let r = trim_string(&v, Where::All);
+        assert_eq!(r, Ok(VarValue::Str("++abc".to_string())));
+
+        let v = vec![VarValue::Str("++abc===".to_string()), VarValue::Str("+".to_string())];
+        let r = trim_string(&v, Where::Left);
+        assert_eq!(r, Ok(VarValue::Str("abc===".to_string())));
+        let r = trim_string(&v, Where::Right);
+        assert_eq!(r, Ok(VarValue::Str("++abc===".to_string())));
+    }
+
+    #[test]
+    fn end_start() {
+        let v = vec![VarValue::Str("testabc".to_string())];
+        let r = starts_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let r = ends_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("test".to_string())];
+        let r = starts_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let r = ends_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("abc".to_string())];
+        let r = starts_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let r = ends_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("xxx".to_string())];
+        let r = starts_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let r = ends_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("".to_string())];
+        let r = starts_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let r = ends_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("test".to_string()), VarValue::Str("abc".to_string())];
+        let r = starts_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let r = ends_with(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+    }
+
+    #[test]
+    fn up_low() {
+        let v = vec![VarValue::Str("aBc DeF".to_string())];
+        let r = change_case(&v, StrCase::Low);
+        assert_eq!(r, Ok(VarValue::Str("abc def".to_string())));
+        let r = change_case(&v, StrCase::Up);
+        assert_eq!(r, Ok(VarValue::Str("ABC DEF".to_string())));
+    }
+
+    #[test]
+    fn contain() {
+        let v = vec![VarValue::Str("aBc DeF".to_string())];
+        let r = contains(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::Str("aBc DeF".to_string()), VarValue::Str("Bc".to_string())];
+        let r = contains(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::Str("aBc DeF".to_string()), VarValue::Str("bc".to_string())];
+        let r = contains(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let v = vec![VarValue::Str("aBc DeF".to_string()), VarValue::Str("bc".to_string()), VarValue::Str("eF".to_string())];
+        let r = contains(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+    }
+
+    #[test]
+    fn replaces() {
+        let v = vec![VarValue::Str("aBc DeF".to_string())];
+        let r = replace(&v);
+        assert!(r.is_err());
+        let v = vec![VarValue::Str("abc def".to_string()), VarValue::Str("bc".to_string())];
+        let r = replace(&v);
+        assert_eq!(r, Ok(VarValue::Str("a def".to_string())));
+        let v = vec![VarValue::Str("abc def".to_string()), VarValue::Str("Bc".to_string())];
+        let r = replace(&v);
+        assert_eq!(r, Ok(VarValue::Str("abc def".to_string())));
+        let v = vec![VarValue::Str("abc def".to_string()), VarValue::Str("bc".to_string()), VarValue::Str("eFG".to_string())];
+        let r = replace(&v);
+        assert_eq!(r, Ok(VarValue::Str("aeFG def".to_string())));
     }
 }
