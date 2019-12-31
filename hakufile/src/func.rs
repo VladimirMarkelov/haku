@@ -56,11 +56,11 @@ enum StrCase {
 pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
     let lowstr = name.to_lowercase();
     match lowstr.as_str() {
-        "os" => Ok(VarValue::Str(os().to_string())),
-        "family" => Ok(VarValue::Str(os_family().to_string())),
-        "bit" => Ok(VarValue::Str(pointer_width().to_string())),
-        "arch" => Ok(VarValue::Str(arch().to_string())),
-        "endian" => Ok(VarValue::Str(endian().to_string())),
+        "os" => Ok(VarValue::from(os())),
+        "family" => Ok(VarValue::from(os_family())),
+        "bit" => Ok(VarValue::from(pointer_width())),
+        "arch" => Ok(VarValue::from(arch())),
+        "endian" => Ok(VarValue::from(endian())),
         "is_file" | "is-file" | "isfile" => all_are(args, CheckType::IsFile),
         "is_dir" | "is-dir" | "isdir" => all_are(args, CheckType::IsDir),
         "exists" => all_are(args, CheckType::Exists),
@@ -124,10 +124,10 @@ fn extract_part(args: &[VarValue], tp: PathPart) -> FuncResult {
     let empty = OsStr::new("");
     let empty_path = Path::new("");
     match tp {
-        PathPart::Stem => Ok(VarValue::Str(p.file_stem().unwrap_or(&empty).to_string_lossy().to_string())),
-        PathPart::Ext => Ok(VarValue::Str(p.extension().unwrap_or(&empty).to_string_lossy().to_string())),
-        PathPart::Dir => Ok(VarValue::Str(p.parent().unwrap_or(&empty_path).to_string_lossy().to_string())),
-        PathPart::Name => Ok(VarValue::Str(p.file_name().unwrap_or(&empty).to_string_lossy().to_string())),
+        PathPart::Stem => Ok(VarValue::from(p.file_stem().unwrap_or(&empty).to_string_lossy().to_string())),
+        PathPart::Ext => Ok(VarValue::from(p.extension().unwrap_or(&empty).to_string_lossy().to_string())),
+        PathPart::Dir => Ok(VarValue::from(p.parent().unwrap_or(&empty_path).to_string_lossy().to_string())),
+        PathPart::Name => Ok(VarValue::from(p.file_name().unwrap_or(&empty).to_string_lossy().to_string())),
     }
 }
 
@@ -278,7 +278,7 @@ fn trim_string(args: &[VarValue], dir: Where) -> FuncResult {
             Where::Left => s.trim_start(),
             Where::Right => s.trim_end(),
         };
-        return Ok(VarValue::Str(st.to_string()));
+        return Ok(VarValue::from(st));
     }
 
     let what = args[1].to_string().chars().next();
@@ -291,7 +291,7 @@ fn trim_string(args: &[VarValue], dir: Where) -> FuncResult {
         Where::Left => s.trim_start_matches(c),
         Where::Right => s.trim_end_matches(c),
     };
-    Ok(VarValue::Str(st.to_string()))
+    Ok(VarValue::from(st))
 }
 
 fn starts_with(args: &[VarValue]) -> FuncResult {
@@ -373,124 +373,124 @@ mod path_test {
 
     #[test]
     fn extract() {
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string())];
+        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
         let r = extract_part(&v, PathPart::Ext);
-        assert_eq!(r, Ok(VarValue::Str("abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from("abc")));
         let r = extract_part(&v, PathPart::Stem);
-        assert_eq!(r, Ok(VarValue::Str("file".to_string())));
+        assert_eq!(r, Ok(VarValue::from("file")));
         let r = extract_part(&v, PathPart::Name);
-        assert_eq!(r, Ok(VarValue::Str("file.abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from("file.abc")));
         let r = extract_part(&v, PathPart::Dir);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp".to_string())));
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp")));
     }
 
     #[test]
     fn change_ext() {
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
         let r = replace_ext(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\file".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str("def".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("def")];
         let r = replace_ext(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\file.def".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.def")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
         let r = replace_ext(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\file.abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc")));
     }
 
     #[test]
     fn append_ext() {
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
         let r = add_ext(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\file.abc".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str("def".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("def")];
         let r = add_ext(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\file.abc.def".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc.def")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
         let r = add_ext(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\file.abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc")));
     }
 
     #[test]
     fn change_name() {
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
         let r = replace_name(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str("some.def".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("some.def")];
         let r = replace_name(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\some.def".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\some.def")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
         let r = replace_name(&v);
         assert!(r.is_err());
     }
 
     #[test]
     fn change_stem() {
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
         let r = replace_stem(&v);
         assert!(r.is_err());
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str("some.def".to_string())];
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("some.def")];
         let r = replace_stem(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\some.def.abc".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string()), VarValue::Str("some".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\some.def.abc")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("some")];
         let r = replace_stem(&v);
-        assert_eq!(r, Ok(VarValue::Str("c:\\tmp\\some.abc".to_string())));
-        let v = vec![VarValue::Str("c:\\tmp\\file.abc".to_string())];
+        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\some.abc")));
+        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
         let r = replace_stem(&v);
         assert!(r.is_err());
     }
 
     #[test]
     fn trims() {
-        let v = vec![VarValue::Str(" \n abc\t   ".to_string())];
+        let v = vec![VarValue::from(" \n abc\t   ")];
         let r = trim_string(&v, Where::All);
-        assert_eq!(r, Ok(VarValue::Str("abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from("abc")));
         let r = trim_string(&v, Where::Left);
-        assert_eq!(r, Ok(VarValue::Str("abc\t   ".to_string())));
+        assert_eq!(r, Ok(VarValue::from("abc\t   ")));
         let r = trim_string(&v, Where::Right);
-        assert_eq!(r, Ok(VarValue::Str(" \n abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from(" \n abc")));
 
-        let v = vec![VarValue::Str("++abc===".to_string()), VarValue::Str("+".to_string())];
+        let v = vec![VarValue::from("++abc==="), VarValue::from("+")];
         let r = trim_string(&v, Where::All);
-        assert_eq!(r, Ok(VarValue::Str("abc===".to_string())));
-        let v = vec![VarValue::Str("++abc===".to_string()), VarValue::Str("=".to_string())];
+        assert_eq!(r, Ok(VarValue::from("abc===")));
+        let v = vec![VarValue::from("++abc==="), VarValue::from("=")];
         let r = trim_string(&v, Where::All);
-        assert_eq!(r, Ok(VarValue::Str("++abc".to_string())));
+        assert_eq!(r, Ok(VarValue::from("++abc")));
 
-        let v = vec![VarValue::Str("++abc===".to_string()), VarValue::Str("+".to_string())];
+        let v = vec![VarValue::from("++abc==="), VarValue::from("+")];
         let r = trim_string(&v, Where::Left);
-        assert_eq!(r, Ok(VarValue::Str("abc===".to_string())));
+        assert_eq!(r, Ok(VarValue::from("abc===")));
         let r = trim_string(&v, Where::Right);
-        assert_eq!(r, Ok(VarValue::Str("++abc===".to_string())));
+        assert_eq!(r, Ok(VarValue::from("++abc===")));
     }
 
     #[test]
     fn end_start() {
-        let v = vec![VarValue::Str("testabc".to_string())];
+        let v = vec![VarValue::from("testabc")];
         let r = starts_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
         let r = ends_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
-        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("test".to_string())];
+        let v = vec![VarValue::from("testabc"), VarValue::from("test")];
         let r = starts_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
         let r = ends_with(&v);
         assert_eq!(r, Ok(VarValue::Int(0)));
-        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("abc".to_string())];
+        let v = vec![VarValue::from("testabc"), VarValue::from("abc")];
         let r = starts_with(&v);
         assert_eq!(r, Ok(VarValue::Int(0)));
         let r = ends_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
-        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("xxx".to_string())];
+        let v = vec![VarValue::from("testabc"), VarValue::from("xxx")];
         let r = starts_with(&v);
         assert_eq!(r, Ok(VarValue::Int(0)));
         let r = ends_with(&v);
         assert_eq!(r, Ok(VarValue::Int(0)));
-        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("".to_string())];
+        let v = vec![VarValue::from("testabc"), VarValue::from("")];
         let r = starts_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
         let r = ends_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
-        let v = vec![VarValue::Str("testabc".to_string()), VarValue::Str("test".to_string()), VarValue::Str("abc".to_string())];
+        let v = vec![VarValue::from("testabc"), VarValue::from("test"), VarValue::from("abc")];
         let r = starts_with(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
         let r = ends_with(&v);
@@ -499,42 +499,42 @@ mod path_test {
 
     #[test]
     fn up_low() {
-        let v = vec![VarValue::Str("aBc DeF".to_string())];
+        let v = vec![VarValue::from("aBc DeF")];
         let r = change_case(&v, StrCase::Low);
-        assert_eq!(r, Ok(VarValue::Str("abc def".to_string())));
+        assert_eq!(r, Ok(VarValue::from("abc def")));
         let r = change_case(&v, StrCase::Up);
-        assert_eq!(r, Ok(VarValue::Str("ABC DEF".to_string())));
+        assert_eq!(r, Ok(VarValue::from("ABC DEF")));
     }
 
     #[test]
     fn contain() {
-        let v = vec![VarValue::Str("aBc DeF".to_string())];
+        let v = vec![VarValue::from("aBc DeF")];
         let r = contains(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
-        let v = vec![VarValue::Str("aBc DeF".to_string()), VarValue::Str("Bc".to_string())];
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("Bc")];
         let r = contains(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
-        let v = vec![VarValue::Str("aBc DeF".to_string()), VarValue::Str("bc".to_string())];
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("bc")];
         let r = contains(&v);
         assert_eq!(r, Ok(VarValue::Int(0)));
-        let v = vec![VarValue::Str("aBc DeF".to_string()), VarValue::Str("bc".to_string()), VarValue::Str("eF".to_string())];
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("bc"), VarValue::from("eF")];
         let r = contains(&v);
         assert_eq!(r, Ok(VarValue::Int(1)));
     }
 
     #[test]
     fn replaces() {
-        let v = vec![VarValue::Str("aBc DeF".to_string())];
+        let v = vec![VarValue::from("aBc DeF")];
         let r = replace(&v);
         assert!(r.is_err());
-        let v = vec![VarValue::Str("abc def".to_string()), VarValue::Str("bc".to_string())];
+        let v = vec![VarValue::from("abc def"), VarValue::from("bc")];
         let r = replace(&v);
-        assert_eq!(r, Ok(VarValue::Str("a def".to_string())));
-        let v = vec![VarValue::Str("abc def".to_string()), VarValue::Str("Bc".to_string())];
+        assert_eq!(r, Ok(VarValue::from("a def")));
+        let v = vec![VarValue::from("abc def"), VarValue::from("Bc")];
         let r = replace(&v);
-        assert_eq!(r, Ok(VarValue::Str("abc def".to_string())));
-        let v = vec![VarValue::Str("abc def".to_string()), VarValue::Str("bc".to_string()), VarValue::Str("eFG".to_string())];
+        assert_eq!(r, Ok(VarValue::from("abc def")));
+        let v = vec![VarValue::from("abc def"), VarValue::from("bc"), VarValue::from("eFG")];
         let r = replace(&v);
-        assert_eq!(r, Ok(VarValue::Str("aeFG def".to_string())));
+        assert_eq!(r, Ok(VarValue::from("aeFG def")));
     }
 }

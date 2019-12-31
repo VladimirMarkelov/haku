@@ -34,6 +34,16 @@ impl From<i64> for VarValue {
         VarValue::Int(i)
     }
 }
+impl From<i32> for VarValue {
+    fn from(i: i32) -> Self {
+        VarValue::Int(i as i64)
+    }
+}
+impl From<u32> for VarValue {
+    fn from(i: u32) -> Self {
+        VarValue::Int(i as i64)
+    }
+}
 
 impl ToString for VarValue {
     fn to_string(&self) -> String {
@@ -507,7 +517,7 @@ mod var_test {
     #[test]
     fn interpolate_one_match() {
         let mut v = VarMgr::new(0);
-        v.set_var("abc", VarValue::Str("123".to_string()));
+        v.set_var("abc", VarValue::from("123"));
         // escaped $
         let instr = "text $$${abc} end";
         let outstr = v.interpolate(instr, false);
@@ -533,8 +543,8 @@ mod var_test {
     #[test]
     fn interpolate_few_matches() {
         let mut v = VarMgr::new(0);
-        v.set_var("abc", VarValue::Str("123".to_string()));
-        v.set_var("def", VarValue::Str("test".to_string()));
+        v.set_var("abc", VarValue::from("123"));
+        v.set_var("def", VarValue::from("test"));
         // escaped $
         let instr = "text ${def}$$${abc} end";
         let outstr = v.interpolate(instr, false);
@@ -556,8 +566,8 @@ mod var_test {
     #[test]
     fn interpolate_mixed_matches() {
         let mut v = VarMgr::new(0);
-        v.set_var("abc", VarValue::Str("123".to_string()));
-        v.set_var("def", VarValue::Str("test".to_string()));
+        v.set_var("abc", VarValue::from("123"));
+        v.set_var("def", VarValue::from("test"));
         // escaped $
         let instr = "text ${def}$${abc} end";
         let outstr = v.interpolate(instr, false);
@@ -584,8 +594,8 @@ mod var_test {
     #[test]
     fn mixed_interpolation() {
         let mut v = VarMgr::new(0);
-        v.set_var("abc", VarValue::Str("123".to_string()));
-        v.set_var("def", VarValue::Str("test".to_string()));
+        v.set_var("abc", VarValue::from("123"));
+        v.set_var("def", VarValue::from("test"));
         // slash goes first
         let instr = "\\t${def} text ${ab\\nc} end";
         let outstr = v.interpolate(instr, false);
