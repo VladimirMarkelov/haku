@@ -98,6 +98,8 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "pad-center" | "pad_center" => pad(args, Where::All),
         "pad-left" | "pad_left" => pad(args, Where::Left),
         "pad-right" | "pad_right" => pad(args, Where::Right),
+        "field" | "fields" => fields(args),
+        "field-sep" | "fields-sep" | "field_sep" | "fields_sep" => fields_with_sep(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -427,6 +429,59 @@ fn pad(args: &[VarValue], loc: Where) -> FuncResult {
     Ok(VarValue::from(res))
 }
 
+fn fields(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Err("requires at least two arguments".to_string());
+    }
+
+    let s = args[0].to_string();
+    let mut vals = Vec::new();
+    let flds: Vec<&str> = s.split_whitespace().collect();
+    for a in args[1..].iter() {
+        let idx = a.to_int() as usize;
+        if idx >= flds.len() {
+            vals.push(String::new());
+        } else {
+            vals.push(flds[idx].to_string());
+        }
+    }
+
+    if args.len() == 2 {
+        Ok(VarValue::from(vals.pop().unwrap())) // unwrap is OK - vals is never empty here
+    } else {
+        Ok(VarValue::List(vals))
+    }
+}
+
+fn fields_with_sep(args: &[VarValue]) -> FuncResult {
+    if args.len() < 3 {
+        return Err("requires at least three arguments".to_string());
+    }
+
+    let s = args[0].to_string();
+    let sep = args[1].to_string();
+    if sep.is_empty() {
+        return Err("separator cannot be emtpy".to_string());
+    }
+
+    let mut vals = Vec::new();
+    let flds: Vec<&str> = s.split(&sep).collect();
+    for a in args[2..].iter() {
+        let idx = a.to_int() as usize;
+        if idx >= flds.len() {
+            vals.push(String::new());
+        } else {
+            vals.push(flds[idx].to_string());
+        }
+    }
+
+    if args.len() == 3 {
+        Ok(VarValue::from(vals.pop().unwrap())) // unwrap is OK - vals is never empty here
+    } else {
+        Ok(VarValue::List(vals))
+    }
+}
+
 #[cfg(test)]
 mod path_test {
     use super::*;
@@ -649,5 +704,39 @@ mod path_test {
         let v = vec![VarValue::from("abc"), VarValue::from("+="), VarValue::from(11)];
         let r = pad(&v, Where::All);
         assert_eq!(r, Ok(VarValue::from("+=+=abc+=+=")));
+    }
+
+    #[test]
+    fn field() {
+        let v = vec![VarValue::from("abc def\tghi")];
+        let r = fields(&v);
+        assert!(r.is_err());
+        let v = vec![VarValue::from("abc def\tghi"), VarValue::from("s")];
+        let r = fields(&v);
+        assert_eq!(r, Ok(VarValue::from("abc")));
+        let v = vec![VarValue::from("abc def\tghi"), VarValue::from(8)];
+        let r = fields(&v);
+        assert_eq!(r, Ok(VarValue::from("")));
+        let v = vec![VarValue::from("abc def\tghi"), VarValue::from(1), VarValue::from(2), VarValue::from(1)];
+        let r = fields(&v);
+        assert_eq!(r, Ok(VarValue::List(vec!["def".to_string(), "ghi".to_string(), "def".to_string()])));
+
+        // with separator
+        let v = vec![VarValue::from("abc daf\tahi")];
+        let r = fields_with_sep(&v);
+        assert!(r.is_err());
+        let v = vec![VarValue::from("abc daf\tahi"), VarValue::from("a")];
+        let r = fields_with_sep(&v);
+        assert!(r.is_err());
+
+        let v = vec![VarValue::from("abc daf\tahi"), VarValue::from("a"), VarValue::from(8)];
+        let r = fields_with_sep(&v);
+        assert_eq!(r, Ok(VarValue::from("")));
+        let v = vec![VarValue::from("abc daf\tahi"), VarValue::from("a"), VarValue::from(2), VarValue::from("1")];
+        let r = fields_with_sep(&v);
+        assert_eq!(r, Ok(VarValue::List(vec!["f\t".to_string(), "bc d".to_string()])));
+        let v = vec![VarValue::from("abc daf\tahi"), VarValue::from("a"), VarValue::from(1), VarValue::from("asd")];
+        let r = fields_with_sep(&v);
+        assert_eq!(r, Ok(VarValue::List(vec!["bc d".to_string(), String::new()])));
     }
 }
