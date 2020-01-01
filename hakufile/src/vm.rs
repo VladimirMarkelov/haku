@@ -52,25 +52,19 @@ impl RunOpts {
         }
     }
 
-    pub fn with_dry_run(self, dry_run: bool) -> Self {
-        RunOpts {
-            dry_run,
-            ..self
-        }
+    pub fn with_dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
     }
 
-    pub fn with_features(self, feats: Vec<String>) -> Self {
-        RunOpts {
-            feats,
-            ..self
-        }
+    pub fn with_features(mut self, feats: Vec<String>) -> Self {
+        self.feats = feats;
+        self
     }
 
-    pub fn with_verbosity(self, verbosity: usize) -> Self {
-        RunOpts {
-            verbosity,
-            ..self
-        }
+    pub fn with_verbosity(mut self, verbosity: usize) -> Self {
+        self.verbosity = verbosity;
+        self
     }
 }
 
@@ -79,7 +73,7 @@ impl RunOpts {
 pub struct RecipeDesc {
     /// recipe's name
     pub name: String,
-    /// recipe's description from its doc comments 
+    /// recipe's description from its doc comments
     pub desc: String,
     /// a list of recipes this one depends on
     pub depends: Vec<String>,
