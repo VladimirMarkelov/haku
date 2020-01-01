@@ -138,7 +138,7 @@ impl HakuFile {
         Ok(())
     }
 
-    pub fn load_file(path: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
+    pub fn load_from_file(path: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
         let mut hk = HakuFile::new();
         let input = match File::open(path) {
             Ok(f) => f,
@@ -158,6 +158,28 @@ impl HakuFile {
                 }
             } else {
                 return Err(HakuError::FileReadFailure(path.to_string()));
+            }
+
+            if full_line != "" {
+                hk.process_line(&full_line, idx, opts)?;
+                full_line.clear();
+            }
+        }
+        hk.remove_dead_code();
+        Ok(hk)
+    }
+
+    pub fn load_from_str(src: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
+        let mut hk = HakuFile::new();
+        let mut full_line = String::new();
+        hk.ops.clear();
+        let mut idx: usize = 0;
+        for l in src.lines() {
+            idx += 1;
+            let l = l.trim();
+            full_line += l;
+            if full_line.ends_with('\\') || full_line == "" {
+                continue;
             }
 
             if full_line != "" {

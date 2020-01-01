@@ -100,7 +100,7 @@ fn main() -> Result<(), HakuError> {
         .with_verbosity(conf.verbose);
     let mut eng = Engine::new(opts);
     eng.set_free_args(&conf.args);
-    if let Err(e) = eng.load_file(&filename) {
+    if let Err(e) = eng.load_from_file(&filename) {
         eprintln!("{}", e);
         exit(1);
     }

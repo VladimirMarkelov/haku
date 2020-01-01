@@ -162,16 +162,25 @@ impl Engine {
         eng
     }
 
-    pub fn load_file(&mut self, filepath: &str) -> Result<(), HakuError> {
+    pub fn load_from_file(&mut self, filepath: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 2, "Loading file: {}", filepath);
         for s in &self.included {
             if s == filepath {
                 return Err(HakuError::IncludeRecursionError(filepath.to_string()));
             }
         }
-        let hk = HakuFile::load_file(filepath, &self.opts)?;
+        let hk = HakuFile::load_from_file(filepath, &self.opts)?;
         self.files.push(hk);
         self.included.push(filepath.to_string());
+        self.run_header(self.files.len()-1)?;
+        self.detect_recipes();
+        Ok(())
+    }
+
+    pub fn load_from_str(&mut self, src: &str) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 2, "Executing string: {}", src);
+        let hk = HakuFile::load_from_str(src, &self.opts)?;
+        self.files.push(hk);
         self.run_header(self.files.len()-1)?;
         self.detect_recipes();
         Ok(())
@@ -198,7 +207,7 @@ impl Engine {
         output!(self.opts.verbosity, 3, "TO INCLUDE: {}", to_include.len());
         for (i, path) in to_include.iter().enumerate() {
             let f = to_include_flags[i];
-            let res = self.load_file(path);
+            let res = self.load_from_file(path);
             if res.is_err() {
                 output!(self.opts.verbosity, 2, "ERROR: {:?}", res);
             }
@@ -1018,5 +1027,67 @@ impl Engine {
     fn leave_recipe(&mut self) {
         self.varmgr.recipe_vars.clear();
         self.cond_stack.clear();
+    }
+}
+
+#[cfg(test)]
+mod vm_test {
+    use super::*;
+    use std::mem;
+
+    struct Prs {
+        expr: &'static str,
+        tp: Op,
+    }
+
+    #[test]
+    fn load() {
+        let opts = RunOpts::new();
+        let mut vm = Engine::new(opts);
+        let res = vm.load_from_str("section: deps");
+        assert!(res.is_ok());
+        assert_eq!(vm.files.len(), 1);
+        assert_eq!(vm.recipes.len(), 1);
+        assert_eq!(vm.files[0].ops.len(), 1);
+        assert_eq!(vm.files[0].disabled.len(), 0);
+        assert_eq!(
+            mem::discriminant(&vm.files[0].ops[0].op),
+            mem::discriminant(&Op::Recipe(String::new(), 0, Vec::new(), Vec::new())));
+    }
+
+    #[test]
+    fn ops() {
+        let parses: Vec<Prs> =vec![
+            Prs{ expr: "run('cmd')", tp: Op::Func(String::new(), Vec::new())},
+            Prs{ expr: "run('cmd', `abs`, inner(10,2,3))", tp: Op::Func(String::new(), Vec::new())},
+            Prs{ expr: "END", tp: Op::StmtClose},
+            Prs{ expr: "Return", tp: Op::Return},
+            Prs{ expr: "ELse", tp: Op::Else},
+            Prs{ expr: "brEAk", tp: Op::Break},
+            Prs{ expr: "continuE", tp: Op::Continue},
+            Prs{ expr: "a = `ls` || `dir` && 12 == r#zcv#", tp: Op::Assign(String::new(), Vec::new())},
+            Prs{ expr: "a = `ls` || !`dir` && 12 || $ui != 'zcv'", tp: Op::Assign(String::new(), Vec::new())},
+            Prs{ expr: "a ?= `ls` || `dir` || r#default#", tp: Op::DefAssign(String::new(), Vec::new())},
+            Prs{ expr: "a = `ls` ? `dir` ? 'default'", tp: Op::EitherAssign(false, String::new(), Vec::new())},
+            Prs{ expr: "a ?= `ls` ? `dir` ? 'default'", tp: Op::EitherAssign(false, String::new(), Vec::new())},
+            Prs{ expr: "if $a > `dir | wc -l` || $b == 'test${zef}':", tp: Op::If(Vec::new())},
+            Prs{ expr: "if $a > `dir | wc -l` || $b == 'test${zef}' ; do", tp: Op::If(Vec::new())},
+            Prs{ expr: "if $a > `dir | wc -l` || $b == 'test${zef}' then", tp: Op::If(Vec::new())},
+            Prs{ expr: "while `ping ${ip}`:", tp: Op::While(Vec::new())},
+            Prs{ expr: "while `ping ${ip}` && $b == 90 do", tp: Op::While(Vec::new())},
+            Prs{ expr: "for a in 1..2:", tp: Op::For(String::new(), Seq::Int(0,0,0))},
+            Prs{ expr: "for a in 1..2..8 do", tp: Op::For(String::new(), Seq::Int(0,0,0))},
+            Prs{ expr: "for a in 'a b c d' then", tp: Op::For(String::new(), Seq::Int(0,0,0))},
+            Prs{ expr: "for a in a b c d :", tp: Op::For(String::new(), Seq::Int(0,0,0))},
+            Prs{ expr: "for a in `dir *.*`", tp: Op::For(String::new(), Seq::Int(0,0,0))},
+        ];
+        for p in parses {
+            let opts = RunOpts::new();
+            let mut vm = Engine::new(opts);
+            let res = vm.load_from_str(p.expr);
+            assert!(res.is_ok());
+            println!("{}", p.expr);
+            assert_eq!(mem::discriminant(&vm.files[0].ops[0].op), mem::discriminant(&p.tp));
+        }
     }
 }
