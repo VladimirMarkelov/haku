@@ -15,39 +15,54 @@ use crate::vm::{RunOpts};
 #[grammar = "haku.pest"]
 pub struct TaskParser;
 
+/// Disabled recipe description
 #[derive(Clone)]
 pub struct DisabledRecipe {
+    /// recipe's name
     pub name: String,
+    /// optional description from doc comment
     pub desc: String,
+    /// list of features when the recipe is enabled
     pub feat: String,
 }
 
+/// A single operation description
 #[derive(Clone,Debug)]
-pub struct OpItem {
-    pub op: Op,
-    pub line: usize,
+pub(crate) struct OpItem {
+    /// Operation
+    pub(crate) op: Op,
+    /// the line number in the script
+    pub(crate) line: usize,
 }
 
-pub struct HakuFile {
-    pub ops: Vec<OpItem>,
-    pub disabled: Vec<DisabledRecipe>,
+/// A single script description
+pub(crate) struct HakuFile {
+    /// list of lines that can be executed (all comment and disabled code are removed)
+    pub(crate) ops: Vec<OpItem>,
+    /// list of disabled recipes (for list command)
+    pub(crate) disabled: Vec<DisabledRecipe>,
 }
 
+/// What to skip while parsing the script
 #[derive(Debug,PartialEq)]
 enum Skip {
+    /// Nothing - the next line should be executed
     None,
+    /// skip a command block (entire IF/FOR/WHILE or just a single line)
     Command,
+    /// skip the entire recipe - the recipe is marked as a disabled one
     Recipe,
 }
 
 impl HakuFile {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         HakuFile {
             ops: Vec::new(),
             disabled: Vec::new(),
         }
     }
 
+    /// Parses a single script line. Each line must contain only one rule(command/statement)
     fn process_line(&mut self, line: &str, idx: usize, opts: &RunOpts) -> Result<(), HakuError> {
         let res =  TaskParser::parse(Rule::expression, line);
 
@@ -138,6 +153,8 @@ impl HakuFile {
         Ok(())
     }
 
+    /// Loads and parses a script from a file. If thea script contains INCLUDE statements, all
+    /// included files are loaded and parsed as well
     pub fn load_from_file(path: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
         let mut hk = HakuFile::new();
         let input = match File::open(path) {
@@ -169,6 +186,8 @@ impl HakuFile {
         Ok(hk)
     }
 
+    /// Loads and parses a script from memory. If the script contains INCLUDE statements, all
+    /// included files are loaded from files and parsed as well
     pub fn load_from_str(src: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
         let mut hk = HakuFile::new();
         let mut full_line = String::new();
@@ -191,8 +210,7 @@ impl HakuFile {
         Ok(hk)
     }
 
-    // removes all constructions that are disabled, but keep disabled recipe - to be
-    // able to list them
+    /// Removes all disabled blocks, but keep disabled recipe - to be able to list them
     pub fn remove_dead_code(&mut self) {
         let mut skip = Skip::None;
         let mut pass = true;

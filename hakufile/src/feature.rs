@@ -12,6 +12,13 @@ use crate::vm::{RunOpts};
 // pointer_width: 32, 64
 // endian: big, little
 
+/// Checks if a feature is in a list of enabled features.
+///
+/// Arguments:
+///
+/// * `val` - the feature value
+/// * `p` - list of enabled features
+/// * `neg` - invert the result
 fn check_feature_val(val: &str, p: Pairs<Rule>, neg: bool) -> bool {
     let mut found = false;
     for fv in p {
@@ -28,6 +35,13 @@ fn check_feature_val(val: &str, p: Pairs<Rule>, neg: bool) -> bool {
    found
 }
 
+/// Checks if any feature is in a list of enabled features.
+///
+/// Arguments:
+///
+/// * `vals` - feature list to check
+/// * `p` - list of enabled features
+/// * `neg` - invert the result
 fn check_feature_list(vals: &[String], p: Pairs<Rule>, neg: bool) -> bool {
     if vals.is_empty() {
         return false;
@@ -53,6 +67,8 @@ fn check_feature_list(vals: &[String], p: Pairs<Rule>, neg: bool) -> bool {
     found
 }
 
+/// Checks the list of features in a directive against list of enabled features.
+/// Returns `true` if all features are in list of enabled features.
 pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts) -> Result<bool, String> {
     let mut ok = true;
     for ss in p {

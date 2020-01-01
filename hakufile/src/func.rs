@@ -19,33 +19,52 @@ use crate::var::{VarValue};
 // pointer_width: 32, 64
 // endian: big, little
 
+/// default alphabet to generate random strings
 const LETTERS: &str = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 type FuncResult = Result<VarValue, String>;
+/// File path check: object is file, object is directory, object exists
 enum CheckType {
     IsFile,
     IsDir,
     Exists,
 }
+/// Which part of file path to return/replace
 enum PathPart {
+    /// filename stem: `stem("/abc/file1.txt")` -> `"file1"`
     Stem,
+    /// filename: `name("/abc/file1.txt")` -> `"file1.txt"`
     Name,
+    /// file parent directory: `dir("/abc/file1.txt")` -> `"/abc"`
     Dir,
+    /// file extension(without leading dot): `ext("/abc/file1.txt")` -> `"txt"`
     Ext,
 }
+/// System directories
 enum SysPath {
+    /// directory for temporary files
     Temp,
+    /// user home directory
     Home,
+    /// user documents directory
     Docs,
+    /// directory for application configuration files
     Config,
 }
+/// What end use to trim/pad
 enum Where {
+    /// both ends
     All,
+    /// left end
     Left,
+    /// right end
     Right,
 }
+/// Character case
 enum StrCase {
+    /// upcase
     Up,
+    /// lowcase
     Low,
 }
 
@@ -99,6 +118,7 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
     }
 }
 
+/// Checks if all paths are the same: files, directories, existing filesystem objects
 fn all_are(args: &[VarValue], tp: CheckType) -> FuncResult {
     if args.is_empty() {
         return Ok(VarValue::Int(0));
@@ -118,6 +138,7 @@ fn all_are(args: &[VarValue], tp: CheckType) -> FuncResult {
     Ok(VarValue::Int(1))
 }
 
+/// Extract a part of a filesystem path: stem, name, parent directory, extension
 fn extract_part(args: &[VarValue], tp: PathPart) -> FuncResult {
     if args.is_empty() {
         return Ok(VarValue::Int(0));
@@ -134,6 +155,12 @@ fn extract_part(args: &[VarValue], tp: PathPart) -> FuncResult {
     }
 }
 
+/// Replaces path extension:
+///
+/// - First value is the path
+/// - Second values is the new extension (without leading dot)
+///
+/// replace_ext(&["/abc/file.txt", "msg") -> "/abc/file.msg"
 fn replace_ext(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
         return Err("path undefined".to_string());
@@ -151,6 +178,12 @@ fn replace_ext(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(p.to_string_lossy().to_string()))
 }
 
+/// Adds an extension to a path:
+///
+/// - First value is the path
+/// - Second values is the new extension (without leading dot)
+///
+/// add_ext(&["/abc/file.txt", "msg") -> "/abc/file.txt.msg"
 fn add_ext(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
         return Err("path undefined".to_string());
@@ -169,6 +202,12 @@ fn add_ext(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(p+&e))
 }
 
+/// Replaces the last name in a path:
+///
+/// - First value is the path
+/// - Second values is the new name
+///
+/// add_ext(&["/abc/file.txt", "out.msg") -> "/abc/out.msg"
 fn replace_name(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
         return Err("path undefined".to_string());
@@ -182,6 +221,12 @@ fn replace_name(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(p.to_string_lossy().to_string()))
 }
 
+/// Replaces the name stem in a path:
+///
+/// - First value is the path
+/// - Second values is the new stem
+///
+/// add_ext(&["/abc/file.txt", "out") -> "/abc/out.txt"
 fn replace_stem(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
         return Err("path undefined".to_string());
@@ -207,6 +252,7 @@ fn replace_stem(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(dir.join(fname).to_string_lossy().to_string()))
 }
 
+/// Joins all paths into a single one using system path separator
 fn join_path(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
         return Ok(VarValue::Str(String::new()));
@@ -223,6 +269,7 @@ fn join_path(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(path.to_string_lossy().to_string()))
 }
 
+/// Returns a path to a system directory
 fn system_path(pathtype: SysPath) -> FuncResult {
     match pathtype {
         SysPath::Temp => Ok(VarValue::Str(env::temp_dir().to_string_lossy().to_string())),
@@ -241,6 +288,8 @@ fn system_path(pathtype: SysPath) -> FuncResult {
     }
 }
 
+/// Prints all arguments separating them with a space. If `add_new_line` is true,
+/// outputs `\n` at the end.
 fn print_all(args: &[VarValue], add_new_line: bool) -> FuncResult {
     for (idx, v) in args.iter().enumerate() {
         if idx != 0 {
@@ -254,6 +303,8 @@ fn print_all(args: &[VarValue], add_new_line: bool) -> FuncResult {
     Ok(VarValue::Int(1))
 }
 
+/// Formats current time using format specification. If the specification is empty
+/// the format `"%Y%m%d-%H%M%S"` is used.
 fn format_time(args: &[VarValue]) -> FuncResult {
     let now = chrono::Local::now();
     let format = if args.is_empty() {
@@ -269,6 +320,8 @@ fn format_time(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(r))
 }
 
+/// Trims characters from a string. Function with one argument trims all whitespaces.
+/// Otherwise, it trims the first character of the second string from the first one.
 fn trim_string(args: &[VarValue], dir: Where) -> FuncResult {
     if args.is_empty() {
         return Ok(VarValue::Str(String::new()));
@@ -297,6 +350,9 @@ fn trim_string(args: &[VarValue], dir: Where) -> FuncResult {
     Ok(VarValue::from(st))
 }
 
+/// Checks if the string starts with a substring. The function accepts unlimited number
+/// of argument. It returns `true` if a string (the first argument) starts with any
+/// substring(the rest arguments).
 fn starts_with(args: &[VarValue]) -> FuncResult {
     if args.len() < 2 {
         return Ok(VarValue::Int(1));
@@ -312,6 +368,9 @@ fn starts_with(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Int(0))
 }
 
+/// Checks if the string ends with a substring. The function accepts unlimited number
+/// of argument. It returns `true` if a string (the first argument) ends with any
+/// substrings(the rest arguments).
 fn ends_with(args: &[VarValue]) -> FuncResult {
     if args.len() < 2 {
         return Ok(VarValue::Int(1));
@@ -327,6 +386,7 @@ fn ends_with(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Int(0))
 }
 
+/// Returns a string with changed character case
 fn change_case(args: &[VarValue], case: StrCase) -> FuncResult {
     if args.is_empty() {
         return Ok(VarValue::Str(String::new()));
@@ -340,6 +400,9 @@ fn change_case(args: &[VarValue], case: StrCase) -> FuncResult {
     Ok(VarValue::Str(res))
 }
 
+/// Checks if the string contains with a substring. The function accepts unlimited number
+/// of argument. It returns `true` if a string (the first argument) contains any
+/// substrings(the rest arguments).
 fn contains(args: &[VarValue]) -> FuncResult {
     if args.len() < 2 {
         return Ok(VarValue::Int(1));
@@ -355,9 +418,12 @@ fn contains(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Int(0))
 }
 
+/// Replaces a substring with another substring. The source string is the first argument. The
+/// second argument is the substring to look for. The third argument is the value to replace
+/// with. If the third argument is missing, the function just removes the substring.
 fn replace(args: &[VarValue]) -> FuncResult {
     if args.len() < 2 {
-        return Err("requires two arguments".to_string());
+        return Err("requires at least two arguments".to_string());
     }
 
     let s = args[0].to_string();
@@ -370,6 +436,9 @@ fn replace(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Str(s.replace(&what, &with)))
 }
 
+/// Checks if the string matches a regular expression. The function accepts unlimited number
+/// of argument. It returns `true` if a string (the first argument) matches any
+/// regular expression(the rest arguments).
 fn match_regex(args: &[VarValue]) -> FuncResult {
     if args.len() < 2 {
         return Ok(VarValue::from(1));
@@ -388,6 +457,11 @@ fn match_regex(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Int(0))
 }
 
+/// Pads a string with another string until its length equals a given one. The result string
+/// never exceeds the given length. So, if padding string length is greater than one character,
+/// the result may be shorter than expected one.
+///
+/// NOTE: string length is calculated in UTF8 characters, not in bytes.
 fn pad(args: &[VarValue], loc: Where) -> FuncResult {
     if args.len() < 3 {
         return Err("requires three arguments".to_string());
@@ -424,6 +498,13 @@ fn pad(args: &[VarValue], loc: Where) -> FuncResult {
     Ok(VarValue::from(res))
 }
 
+/// Treats a string(the first argument) as a string with values delimited with whitespaces, and
+/// returns the fields by their indices(the rest arguments) as an array of strings. Field index
+/// starts with 0.  If field index is equal to or greater than the number of values, the empty
+/// string returned.
+///
+/// NOTE: if only one index is given, the function returns single value - a string. For more
+/// indices it returns a list of strings.
 fn fields(args: &[VarValue]) -> FuncResult {
     if args.len() < 2 {
         return Err("requires at least two arguments".to_string());
@@ -448,6 +529,13 @@ fn fields(args: &[VarValue]) -> FuncResult {
     }
 }
 
+/// Treats a string(the first argument) as a string with values delimited with `sep`(the second
+/// argument), and returns the fields by their indices(the rest arguments) as an array of strings.
+/// Field index starts with 0.  If field index is equal to or greater than the number of values,
+/// the empty string returned.
+///
+/// NOTE: if only one index is given, the function returns single value - a string. For more
+/// indices it returns a list of strings.
 fn fields_with_sep(args: &[VarValue]) -> FuncResult {
     if args.len() < 3 {
         return Err("requires at least three arguments".to_string());
@@ -477,6 +565,9 @@ fn fields_with_sep(args: &[VarValue]) -> FuncResult {
     }
 }
 
+/// Generates a random string of a given length. First argument is the length of the string.
+/// The second argument is alphabet to generate a string(it must be longer than 10 characters).
+/// If the seconds argument is missing `LETTERS` is used(digits and lowcase Latin characters).
 fn rand_string(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
         return Err("requires at least one argument".to_string());

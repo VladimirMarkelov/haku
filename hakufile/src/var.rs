@@ -4,18 +4,27 @@ use std::usize;
 
 use crate::{output};
 
+/// Result of execution of an external command with shell
 #[derive(Clone,Debug,PartialEq)]
 pub struct ExecResult {
+    /// process exit code
     pub(crate) code: i32,
+    /// process standard output
     pub(crate) stdout: String,
 }
 
+/// Variable value
 #[derive(Clone,Debug,PartialEq)]
 pub enum VarValue {
+    /// undefined
     Undefined,
+    /// contains a string value
     Str(String),
+    /// contains an integer value
     Int(i64),
+    /// contains a list of strings
     List(Vec<String>),
+    /// contains a result of external shell execution command
     Exec(ExecResult),
 }
 
@@ -72,6 +81,17 @@ impl ToString for VarValue {
 }
 
 impl VarValue {
+    /// Converts variable value to a one-line string. The difference between this and to_string
+    /// functions is that this one joins lists and standard output with space instead of
+    /// new line character. It is useful when passing a list or the result of previous shell
+    /// execution to the following shell call.
+    ///
+    /// Example:
+    ///
+    /// a = `ls *.txt`
+    /// rm "${a}"
+    ///
+    /// First, it gets a list of files with txt extension and then removes them in one call
     pub(crate) fn to_flat_string(&self) -> String {
         match self {
             VarValue::Undefined => String::new(),
@@ -103,6 +123,13 @@ impl VarValue {
         }
     }
 
+    /// Return `true` if a variable is truthy:
+    ///
+    /// * non-zero integer value
+    /// * non-empty string
+    /// * non-empty list (it must either have more than one item or the first item must be
+    /// non-empty string
+    /// * result of shell execution with 0 exit code
     pub(crate) fn is_true(&self) -> bool {
         match self {
             VarValue::Undefined => false,
@@ -113,6 +140,11 @@ impl VarValue {
         }
     }
 
+    /// Converts a value to integer:
+    ///
+    /// * string is parsed as i64
+    /// * shell execution is process exit code
+    /// * list - the first list item is parsed as i64
     pub(crate) fn to_int(&self) -> i64 {
         match self {
             VarValue::Undefined => 0,
@@ -148,6 +180,8 @@ impl VarValue {
             },
         }
     }
+
+    /// Returns `true` if both values are equivalent
     fn cmp_eq(&self, val: &VarValue) -> bool {
         match self {
             VarValue::Undefined => match val {
@@ -201,6 +235,10 @@ impl VarValue {
             },
         }
     }
+    /// Returns `true` if this value is greater than `val`.
+    ///
+    /// NOTE: for execution result the successful execution (exit code 0) is always greater
+    /// than failed one (exit code is not 0)
     fn cmp_greater(&self, val: &VarValue) -> bool {
         match self {
             VarValue::Undefined => match val {
@@ -255,6 +293,10 @@ impl VarValue {
             },
         }
     }
+    /// Returns `true` if this value is less than `val`.
+    ///
+    /// NOTE: for execution result the failed execution (exit code is not 0) is always less
+    /// than the successful one (exit code is 0)
     fn cmp_less(&self, val: &VarValue) -> bool {
         match self {
             VarValue::Undefined => match val {
@@ -310,15 +352,26 @@ impl VarValue {
             },
         }
     }
+
+    /// Returns `true` if values are not equivalent
     fn cmp_neq(&self, val: &VarValue) -> bool {
         !self.cmp_eq(val)
     }
+    /// Returns `true` if this value is greater than or equal to `val`
+    ///
+    /// NOTE: for execution result the successful execution (exit code 0) is always greater
+    /// than failed one (exit code is not 0)
     fn cmp_eq_or_greater(&self, val: &VarValue) -> bool {
         !self.cmp_less(val)
     }
+    /// Returns `true` if this value is less than or equal to `val`
+    ///
+    /// NOTE: for execution result the failed execution (exit code is not 0) is always less
+    /// than the successful one (exit code is 0)
     fn cmp_eq_or_less(&self, val: &VarValue) -> bool {
         !self.cmp_greater(val)
     }
+    /// Generic comparison function that calls the correct method depending on comparison sign
     pub(crate) fn cmp(&self, val: &VarValue, cmp_op: &str) -> bool {
         match cmp_op {
             "==" => self.cmp_eq(val),
@@ -332,8 +385,11 @@ impl VarValue {
     }
 }
 
+/// Script variable
 pub struct Var {
+    /// variable's name
     name: String,
+    /// value
     value: VarValue,
 }
 impl Default for Var {
@@ -345,10 +401,15 @@ impl Default for Var {
     }
 }
 
+/// Variable manager: adds/removes variables, interpolates strings by substituting variable values
 pub(crate) struct VarMgr {
+    /// values from CLI - user defined ones. Used to initialize recipe local variables
     pub(crate) free: Vec<String>,
+    /// list of current recipe's local variables
     pub(crate) recipe_vars: Vec<Var>,
+    /// list of script global variables
     vars: Vec<Var>,
+    /// verbosity level when displaying info for a user to standard output
     verbosity: usize,
 }
 
@@ -362,6 +423,7 @@ impl VarMgr {
         }
     }
 
+    /// Change or creates a recipe local variable.
     pub(crate) fn set_recipe_var(&mut self, name: &str, val: VarValue) {
         output!(self.verbosity, 2, "Setting recipe var {}", name);
         for v in self.recipe_vars.iter_mut() {
@@ -375,6 +437,8 @@ impl VarMgr {
         self.recipe_vars.push(Var{name: name.to_string(), value: val});
     }
 
+    /// First, it looks for recipe local variable. If it exists, its values changes. Otherwise,
+    /// it modifies or create a global variable.
     pub(crate) fn set_var(&mut self, name: &str, val: VarValue) {
         output!(self.verbosity, 2, "Setting a var {}", name);
         for v in self.recipe_vars.iter_mut() {
@@ -395,6 +459,8 @@ impl VarMgr {
         self.vars.push(Var{name: name.to_string(), value: val});
     }
 
+    /// Returns a value of a variable. First it looks for a recipe local. If it does not exist,
+    /// looks for a global variable. Returns `Undefined` if no variable exists.
     pub(crate) fn var(&self, name: &str) -> VarValue {
         for v in self.recipe_vars.iter() {
             if v.name == name {
@@ -418,6 +484,30 @@ impl VarMgr {
         VarValue::Undefined
     }
 
+    /// Replaces variable names with its values in strings and shell command lines. A variable
+    /// name must be enclosed into curly braces and preceded with `$`.
+    ///
+    /// Example:
+    ///
+    /// msg = "Done"
+    /// echo "Message: ${msg}"
+    ///
+    /// Output: `Message: Done`
+    ///
+    ///To print `$` character just duplicate it or use a slash:
+    ///
+    /// msg = "Done"
+    /// echo "Message: $${msg}"
+    /// echo "Message: \${msg}
+    ///
+    /// Both echoes print out `Message: ${msg}".
+    ///
+    /// Argument `flat` determines how to interpolate multi-line/-item values:
+    ///
+    /// * `true` - join all lines with a space (for shell execution)
+    /// * `false` - join all lines with new line character (for `print`)
+    ///
+    /// Besides replacing variable names it replaces a few escape sequences: `\n`, `\\`, and `\t`.
     pub(crate) fn interpolate(&self, in_str: &str, flat: bool) -> String {
         let mut start_s: usize;
         let mut start_d: usize;
@@ -649,4 +739,3 @@ mod var_test {
         assert_eq!("$$${def} $123$ end$", &outstr);
     }
 }
-

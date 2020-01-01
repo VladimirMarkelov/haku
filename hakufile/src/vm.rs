@@ -10,7 +10,8 @@ use crate::ops::{Op, Seq, FLAG_PASS, FLAG_QUIET, is_flag_on};
 use crate::func::{run_func};
 use crate::var::{VarMgr,VarValue,ExecResult};
 
-const DEFAULT_SECTION: &str = "_default";
+/// Name of a section that is executed if no section is set by a caller
+const DEFAULT_RECIPE: &str = "_default";
 
 #[macro_export]
 macro_rules! output {
@@ -31,10 +32,14 @@ macro_rules! output {
     };
 }
 
+/// Runtime engine options
 #[derive(Clone)]
 pub struct RunOpts {
+    /// the list of user-defined features passed from a caller
     pub(crate) feats: Vec<String>,
+    /// verbosity level - affects amount of info print while executing a recipe
     verbosity: usize,
+    /// `true` - do not run any shell commands (except ones in assignments and for's)
     dry_run: bool
 }
 
@@ -68,14 +73,23 @@ impl RunOpts {
         }
     }
 }
+
+/// Recipe detailed information
 #[derive(Clone)]
 pub struct RecipeDesc {
+    /// recipe's name
     pub name: String,
+    /// recipe's description from its doc comments 
     pub desc: String,
+    /// a list of recipes this one depends on
     pub depends: Vec<String>,
+    /// is it a system recipe? (system recipes are not show by default)
     pub system: bool,
+    /// the recipe location (file and line)
     pub loc: RecipeLoc,
+    /// recipe-wide flags (i.e., echo off, skip errors)
     pub flags: u32,
+    /// recipe local variables (they override any global variables with the same names)
     pub vars: Vec<String>,
 }
 
@@ -103,42 +117,83 @@ impl fmt::Display for RecipeDesc {
     }
 }
 
+/// Description of a condition that is not finished yet
 #[derive(Clone,Debug)]
 enum Condition {
-    If(bool), // whether `if` condition is true
+    /// value of the last if/elseif condition. The value determines what to do when the engine
+    /// meets `elseif` statement. If `true`, the `if` finishes (as if `end` was met).
+    /// Otherwise, `elseif` condition is evaluated and its value replaces old `If` value.
+    If(bool),
+    /// the engine is in a while loop. Value is the condition to check (never changes,
+    /// assigned when `while` statement met first time
     While(Vec<Op>),
-    ForInt(String, i64, i64, i64), // variable, current, final, step
-    ForList(String, Vec<String>),  // variable, list of values
+    /// the engine is in a for loop that runs through a list of integers, arguments:
+    ///
+    /// * loop variable name (its value changed every cycle)
+    /// * current counter value (changed every cycle)
+    /// * the final value - for stops when the current value reaches or exceeds the final one
+    /// * step - every cycle the current value is changes by the step
+    ForInt(String, i64, i64, i64),
+    /// the engine is in a for loop that runs through a list of strings (i.e., result of
+    /// executing an external command or list of values separated with whitespace):
+    ///
+    /// * loop variable name (its value changed every cycle)
+    /// * list of values (changed every cycle - the used value is removed from the list)
+    ForList(String, Vec<String>),
 }
+
+/// Describes a condition(loop) the engine is in
 #[derive(Clone,Debug)]
 struct CondItem {
+    /// the line number of the first line of the if/for/while
     line: usize,
+    /// detailed info about condition state
     cond: Condition,
 }
 
+/// Engine that runs the recipes
 pub struct Engine {
-    files: Vec<HakuFile>, // Hakufile in order of includes
-    included: Vec<String>, // which files were included to catch recursion
+    /// List of all loaded Hakufiles (in order of `include`s)
+    files: Vec<HakuFile>,
+    /// Already loaded file paths so far. Used when loading a file to detect include recursion
+    included: Vec<String>,
+    /// The list of available recipes
     recipes: Vec<RecipeDesc>,
+    /// Variable manager
     varmgr: VarMgr,
+    /// What shell is used to execute any external command. By default:
+    ///
+    /// * Windows = `["cmd", "/c"]`
+    /// * Others = `["sh", "-cu"]`
     shell: Vec<String>,
+    /// Runtime options passed by a caller
     opts: RunOpts,
 
+    /// stack of nested if/for/while loops
     cond_stack: Vec<CondItem>,
+    /// real line of the currently executed line (to generate more helpful error message)
     real_line: usize,
 }
 
+/// Describes a recipe location
 #[derive(Debug,Clone)]
 pub struct RecipeLoc {
+    // the number of file (in `engine.files` list)
     pub file: usize,
+    // the line number
     pub line: usize,
 }
 
+/// Describes a recipe
 #[derive(Debug)]
 struct RecipeItem {
+    /// recipe's name
     name: String,
+    /// recipe's location
     loc: RecipeLoc,
+    /// recipe's local variables (overrides existing global variables with the same names)
     vars: Vec<String>,
+    /// global recipe flags (i.e., echo off)
     flags: u32,
 }
 
@@ -162,6 +217,8 @@ impl Engine {
         eng
     }
 
+    /// Loads and parse a script from a file (all `include` statements are processed at
+    /// this step as well), and builds a list of available and disables recipes
     pub fn load_from_file(&mut self, filepath: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 2, "Loading file: {}", filepath);
         for s in &self.included {
@@ -177,6 +234,8 @@ impl Engine {
         Ok(())
     }
 
+    /// Loads and parse a script from memory (but all `include` statements try to load
+    /// included scripts from local files), and builds a list of available and disables recipes
     pub fn load_from_str(&mut self, src: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 2, "Executing string: {}", src);
         let hk = HakuFile::load_from_str(src, &self.opts)?;
@@ -186,6 +245,8 @@ impl Engine {
         Ok(())
     }
 
+    /// Looks for all `import` statements between the first line and the first recipe(or the end
+    /// of the script if it does not contain any recipe) and recursively loads imported scripts
     fn run_header(&mut self, idx: usize) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "RUN HEADER: {}: {}", idx, self.files[idx].ops.len());
         let mut to_include: Vec<String> = Vec::new();
@@ -193,7 +254,7 @@ impl Engine {
         for op in &self.files[idx].ops {
             self.real_line = op.line;
             match &op.op {
-                Op::Feature(_, _) => { /* Since dead code is removed, Feature can be just skipped */ },
+                Op::Feature(_, _) => { /* Since dead code is removed, it can be skipped */ },
                 Op::Recipe(_,_,_,_) => break,
                 Op::Comment(_) | Op::DocComment(_) => { /* just continue */ },
                 Op::Include(flags, path) => {
@@ -219,19 +280,26 @@ impl Engine {
         Ok(())
     }
 
+    /// Returns `true` if the name of a recipe is a system one. System recipes should not
+    /// be displayed by a caller
     fn is_system_recipe(name: &str) -> bool {
         name == "_default"
             || name == "_before"
             || name == "_after"
     }
 
+    /// Build a list of available and disabled recipes. If there are a few recipes have the
+    /// same name they are sorted by the following rules:
+    ///
+    /// 1. An active recipe goes before disabled one
+    /// 2. If both recipes are disabled(or enabled) only the first loaded one goes first. It
+    ///    makes it possible to override recipes which already exist in imported scripts
     fn detect_recipes(&mut self) {
         for (file_idx, hk) in self.files.iter().enumerate() {
             let mut desc = String::new();
-            // let mut pass = true;
             for (line_idx, op) in hk.ops.iter().enumerate() {
                 match op.op {
-                    Op::Feature(_, _) => {}, //pass &= b,
+                    Op::Feature(_, _) => {},
                     Op::DocComment(ref s) => desc = s.clone(),
                     Op::Recipe(ref nm, flags, ref vars, ref deps) => {
                         let mut recipe = RecipeDesc{
@@ -254,21 +322,17 @@ impl Engine {
 
                         self.recipes.push(recipe);
                         desc.clear();
-                        // pass = true;
                     },
-                    Op::Comment(_) => {
-                        // do not change anything
-                    },
-                    _ => {
-                        desc.clear();
-                        // pass = true;
-                    },
+                    Op::Comment(_) => { /* do not change anything */ },
+                    _ => { desc.clear(); },
                 }
             }
         }
         self.recipes.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
     }
 
+    /// Returns full path to a script by its number (the number must be less than
+    /// `engine.files` length
     pub fn file_name(&self, file_idx: usize) -> Result<&str, HakuError> {
         if file_idx >= self.files.len() {
             return Err(HakuError::FileNotLoaded(file_idx));
@@ -276,10 +340,12 @@ impl Engine {
         return Ok(&self.included[file_idx]);
     }
 
+    /// Returns info about all loaded available recipes
     pub fn recipes(&self) -> &[RecipeDesc] {
         return &self.recipes
     }
 
+    /// Returns info about all loaded disabled recipes
     pub fn disabled_recipes(&self) -> Vec<DisabledRecipe> {
         let mut v = Vec::new();
         for fidx in 0..self.files.len() {
@@ -290,6 +356,8 @@ impl Engine {
         v
     }
 
+    /// Finds a recipe location by its name (see `detect_recipes` for details about
+    /// name conflicts): file and line numbers
     fn find_recipe(&self, name: &str) -> Result<RecipeDesc, HakuError> {
         for sec in &self.recipes {
             if sec.name == name {
@@ -299,14 +367,20 @@ impl Engine {
         Err(HakuError::RecipeNotFoundError(name.to_string()))
     }
 
+    /// Sets the values to initialize recipe variables (used by a caller).
+    /// Free args are assigned to recipe variables by their ordinal numbers (not by name).
     pub fn set_free_args(&mut self, args: &[String]) {
         self.varmgr.free = Vec::from_iter(args.iter().cloned());
     }
 
+    /// Execute a recipe. If `name` is empty DEFAULT_RECIPE is executed. If `name` is not
+    /// empty the recipe with this names must exist and be active.
+    /// In all cases, the engine runs all the lines until the first recipe in all imported
+    /// scripts.
     pub fn run_recipe(&mut self, name: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 1, "Running SECTION '{}'", name);
         let sec_res = if name.is_empty() {
-            match self.find_recipe(DEFAULT_SECTION) {
+            match self.find_recipe(DEFAULT_RECIPE) {
                 Ok(loc) => Some(loc),
                 _ => None,
             }
@@ -322,6 +396,9 @@ impl Engine {
         Ok(())
     }
 
+    /// If a script line is a function and it is a system one(that changes the engine
+    /// internal state), this function executes the line and returns `true`. Otherwise,
+    /// this function does nothing and returns `false`.
     fn system_call(&mut self, name: &str, ops: &[Op], idx: usize) -> Result<bool, HakuError> {
         let lowname = name.to_lowercase();
         match lowname.as_str() {
@@ -345,15 +422,14 @@ impl Engine {
         }
     }
 
+    /// Executes a script from the first line until the first recipe or end of the script.
     fn exec_file_init(&mut self, file: usize) -> Result<(), HakuError> {
-        // let mut pass = true;
         let cnt = self.files[file].ops.len();
         let mut i = 0;
         while i < cnt {
             let op = self.files[file].ops[i].clone();
             self.real_line = op.line;
             match op.op {
-                // Op::Feature(b, _) => pass &= b,
                 Op::Recipe(_, _, _, _) | Op::Return => return Ok(()),
                 Op::Include(_, _) => { i += 1; },
                 Op::DocComment(_) | Op::Comment(_) => { i += 1; },
@@ -400,6 +476,9 @@ impl Engine {
         Ok(())
     }
 
+    /// Executes headers of all loaded scripts. It is called before running a given recipe.
+    /// The order of script execution is a reversed order of script loading. That makes it
+    /// possible to override e.g. variable values in the user script.
     fn exec_init(&mut self) -> Result<(), HakuError> {
         let cnt  = self.files.len();
         for i in 0..cnt {
@@ -408,6 +487,8 @@ impl Engine {
         Ok(())
     }
 
+    /// Adds a recipe to the list of recipes to execute before running a given one.
+    /// Used only internally.
     fn push_recipe(&mut self, loc: RecipeLoc, found: Option<&[RecipeItem]>, parent: Option<&[String]>) -> Result<Vec<RecipeItem>, HakuError> {
         let op = self.files[loc.file].ops[loc.line].clone();
         let mut sec_item: RecipeItem = RecipeItem{
@@ -455,6 +536,8 @@ impl Engine {
         Ok(vc)
     }
 
+    /// Runs a given recipe. First, it runs all recipe dependencies recursively. Second,
+    /// it runs the body of the given recipe.
     fn exec_recipe(&mut self, loc: RecipeLoc) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 2, "Start recipe [{}:{}]", loc.file, loc.line);
         let sec = self.push_recipe(loc, None, None)?;
@@ -471,6 +554,8 @@ impl Engine {
         Ok(())
     }
 
+    /// Executes a script from a given file and the line in it. Used by run recipe function:
+    /// it looks for a recipe location and then executes from that position.
     fn exec_from(&mut self, file: usize, line: usize, sec_flags: u32) -> Result<(), HakuError> {
         let mut idx = line;
         let l = self.files[file].ops.len();
@@ -523,6 +608,9 @@ impl Engine {
         Ok(())
     }
 
+    /// Looks for `end` statement for the current if/for/while considering nested if/for/while
+    /// statements. Returns an error if corresponding `end` is not found.
+    /// Used by engine when the current value of if/elseif/while/for is false.
     fn find_end(&self, file: usize, line: usize, tp: &str) -> Result<usize, HakuError> {
         let mut idx = line;
         let l = self.files[file].ops.len();
@@ -544,6 +632,8 @@ impl Engine {
         Err(HakuError::NoMatchingEndError(tp.to_string(), HakuError::err_line(self.real_line)))
     }
 
+    /// Looks for `end`, `else` or `elseif` for the current `if` statement in case of `if`
+    /// condition is false. Returns and error if the statement is not found.
     fn find_else(&self, file: usize, line: usize, tp: &str) -> Result<(bool, usize), HakuError> {
         let mut idx = line;
         let l = self.files[file].ops.len();
@@ -570,6 +660,12 @@ impl Engine {
         Err(HakuError::NoMatchingEndError(tp.to_string(), HakuError::err_line(self.real_line)))
     }
 
+    /// Executes external command and collects its output. The command and its output are not
+    /// displayed. But if the stderr is not empty it is printed out. Before execution the
+    /// engine substitutes used variables in command line.
+    /// The output is expected to be valid UTF-8.
+    ///
+    /// Internal function to use by `for` or assignment statement.
     fn exec_cmd(&mut self, cmdline: &str) -> Result<ExecResult, HakuError> {
         let cmdline = self.varmgr.interpolate(&cmdline, true);
         let mut eres = ExecResult {
@@ -601,6 +697,10 @@ impl Engine {
         Ok(eres)
     }
 
+    /// Executes external command and collects its standard and error output, and exit code.
+    /// Before execution the engine substitutes used variables in command line.
+    ///
+    /// Used by script lines that are standalone shell calls, like `rm "${filename}"`
     fn exec_cmd_shell(&mut self, flags: u32, cmdline: &str, line: usize) -> Result<(), HakuError> {
         let no_fail = is_flag_on(flags, FLAG_PASS);
         let cmdline = self.varmgr.interpolate(&cmdline, true);
@@ -643,6 +743,9 @@ impl Engine {
         Ok(())
     }
 
+    /// Evaluates `ops` one by one and assigns the first non-falsy result to variable `name`.
+    /// When `chk` is `true` it evaluates and assigns the new value only if the variable is
+    /// falsy one(0, empty string, or shell command with non-zero exit code)
     fn exec_either_assign(&mut self, chk: bool, name: &str, ops: &[Op]) -> Result<(), HakuError> {
         if chk && self.varmgr.var(name).is_true() {
             return Ok(());
@@ -657,11 +760,16 @@ impl Engine {
         Ok(())
     }
 
+    /// Evaluates the whole expression `ops` and assigns a new value to variable `name`.
+    /// When `chk` is `true` it evaluates and assigns the new value only if the variable is
+    /// falsy one(0, empty string, or shell command with non-zero exit code).
+    /// If evaluator detect logical expression (e.g., `$a > 10 && $msg =="text"), the
+    /// final value is 0 or 1 depending on the result is false or true.
     fn exec_assign_generic(&mut self, chk: bool, name: &str, ops: &[Op]) -> Result<(), HakuError> {
         if chk && self.varmgr.var(name).is_true() {
             return Ok(());
         }
-        let cnt = ops.len(); // 1=simple assing, >1=logical
+        let cnt = ops.len(); // 1=simple assign, >1=logical
         let mut val = false;
         for op in ops.iter() {
             let v = self.exec_op(op)?;
@@ -693,6 +801,8 @@ impl Engine {
         self.exec_assign_generic(false, name, ops)
     }
 
+    /// Evaluates `ops` one by one: return 1 if all items are evaluated as `true`,
+    /// and returns 0 immediately when the first falsy value is met.
     fn exec_and_expr(&mut self, ops: &[Op]) -> Result<VarValue, HakuError> {
         let cnt = ops.len();
         let mut val = true;
@@ -715,6 +825,8 @@ impl Engine {
         }
     }
 
+    /// Executes a built-in function. First, it tries to execute as a system function(that
+    /// modifies internal engine state). If this way fails, executes the function in a common way.
     fn exec_func(&mut self, name: &str, ops: &[Op]) -> Result<VarValue, HakuError> {
         output!(self.opts.verbosity, 2, "Exec func {}, args: {:?}", name, ops);
         let mut args: Vec<VarValue> = Vec::new();
@@ -730,6 +842,8 @@ impl Engine {
         }
     }
 
+    /// Evaluates a condition `ops`. If it is true, starts executing `if` body. Otherwise,
+    /// looks for corresponding `elseif`/`else`/`end` which comes first.
     fn exec_if(&mut self, ops: &[Op], file: usize, idx: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec if");
         assert!(ops.len() == 1);
@@ -748,6 +862,8 @@ impl Engine {
         }
     }
 
+    /// If the corresponding `if` or `elseif` condition is true, the function finishes `if`
+    /// execution by looking for its `end`. Otherwise starts executing `else` body.
     fn exec_else(&mut self, file: usize, idx: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec else");
         if self.cond_stack.is_empty() {
@@ -766,6 +882,10 @@ impl Engine {
         }
     }
 
+    /// If the corresponding `if` or previous `elseif` condition is true, the function
+    /// finishes `if` execution by looking for its `end`. Otherwise, it evaluates `elseif`
+    /// condition. If it is `true`, it starts executing `elseif` body. If `false`, looks
+    /// for the next `elseif`/`else`/`end` which comes first.
     fn exec_elseif(&mut self, ops: &[Op], file: usize, idx: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec elseif");
         if self.cond_stack.is_empty() {
@@ -797,6 +917,8 @@ impl Engine {
         }
     }
 
+    /// Evaluates a condition `ops`. If it is true, starts executing `while` body. Otherwise,
+    /// looks for corresponding `end`.
     fn exec_while(&mut self, ops: &[Op], idx: usize) -> Result<bool, HakuError> {
         output!(self.opts.verbosity, 3, "Exec while {:?}", ops);
         assert!(ops.len() == 1);
@@ -808,6 +930,9 @@ impl Engine {
         Ok(v.is_true())
     }
 
+    /// Processed `end` statement. For `if` it just continues execution. For `while` and `for`
+    /// it checks the current loop condition: if `true`, it start the next loop cycle;
+    /// if `false`, it continues execution for the next line.
     fn exec_end(&mut self) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec end");
         if let Some(op) = self.cond_stack.pop() {
@@ -853,6 +978,7 @@ impl Engine {
         }
     }
 
+    /// Breaks the current `for` or `while`.
     fn exec_break(&mut self, file: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec break");
         while let Some(cnd) = self.cond_stack.pop() {
@@ -864,6 +990,7 @@ impl Engine {
         Err(HakuError::NoMatchingForWhileError(HakuError::err_line(self.real_line)))
     }
 
+    /// Restarts the current `for` or `while` cycle from its first line.
     fn exec_continue(&mut self, file: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec continue");
         let mut next: usize = usize::MAX;
@@ -885,6 +1012,9 @@ impl Engine {
         }
     }
 
+    /// Initialize `for` loop. Calculates its execution range or list of values and
+    /// starts executing from the first one(if the initial conditions are valid). Otherwise,
+    /// skips the loop by looking for the corresponding `end` statement.
     fn exec_for(&mut self, name: &str, seq: Seq, idx: usize) -> Result<bool, HakuError> {
         output!(self.opts.verbosity, 3, "Exec for");
         match seq {
@@ -953,6 +1083,7 @@ impl Engine {
         Ok(false)
     }
 
+    /// Compares two variables. Returns 1 if condition is true, and 0 otherwise.
     fn exec_compare(&mut self, cmp_op: &str, args: &[Op]) -> Result<VarValue, HakuError> {
         // compare always get 2 arguments
         assert!(args.len() == 2);
@@ -965,6 +1096,7 @@ impl Engine {
         }
     }
 
+    /// Generic function: executes any expression value(variable, shell exec, function).
     fn exec_op(&mut self, op: &Op) -> Result<VarValue, HakuError> {
         match op {
             Op::Int(i) => Ok(VarValue::Int(*i)),
@@ -996,14 +1128,16 @@ impl Engine {
         }
     }
 
+    /// Executed before staring the next recipe. It does all preparations, like recipe
+    /// local variable initialization.
     fn enter_recipe(&mut self, recipe: &RecipeItem) {
         output!(self.opts.verbosity, 2, "enter section. Vars {:?}, Free {:?}", recipe.vars, self.varmgr.free);
         if recipe.vars.is_empty() || self.varmgr.free.is_empty() {
             return;
         }
+
         // init recipe vars
         let mut idx = 0usize;
-
         for v in recipe.vars.iter() {
             if v.starts_with('+') {
                 let nm = v.trim_start_matches('+');
@@ -1024,6 +1158,8 @@ impl Engine {
         }
     }
 
+    /// When the last line of a recipe is done, it cleans up temporary resources allocated
+    /// for the recipe (e.g. deletes all recipe local variables)
     fn leave_recipe(&mut self) {
         self.varmgr.recipe_vars.clear();
         self.cond_stack.clear();
