@@ -258,8 +258,9 @@ impl Engine {
                 Op::Recipe(_,_,_,_) => break,
                 Op::Comment(_) | Op::DocComment(_) => { /* just continue */ },
                 Op::Include(flags, path) => {
-                    output!(self.opts.verbosity, 3, "        !!INCLUDE - {}", path);
-                    to_include.push(path.to_string());
+                    let inc_path = self.varmgr.interpolate(&path, true);
+                    output!(self.opts.verbosity, 3, "        !!INCLUDE - {}", inc_path);
+                    to_include.push(inc_path);
                     to_include_flags.push(*flags);
                 },
                 _ => { /*run = true */ },
@@ -300,7 +301,7 @@ impl Engine {
             for (line_idx, op) in hk.ops.iter().enumerate() {
                 match op.op {
                     Op::Feature(_, _) => {},
-                    Op::DocComment(ref s) => desc = s.clone(),
+                    Op::DocComment(ref s) => desc = self.varmgr.interpolate(s, true),
                     Op::Recipe(ref nm, flags, ref vars, ref deps) => {
                         let mut recipe = RecipeDesc{
                             name: nm.clone(),
