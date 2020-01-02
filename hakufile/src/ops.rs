@@ -16,7 +16,7 @@ pub enum Seq {
     Exec(String),
 }
 
-/// external command and section flags. Flags are added as prefixes of a script lines.
+/// external command and recipe flags. Flags are added as prefixes of a script lines.
 
 /// Do not print the command before execution (`@`)
 pub const FLAG_QUIET: u32 = 1;

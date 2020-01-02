@@ -10,7 +10,7 @@ use crate::ops::{Op, Seq, FLAG_PASS, FLAG_QUIET, is_flag_on};
 use crate::func::{run_func};
 use crate::var::{VarMgr,VarValue,ExecResult};
 
-/// Name of a section that is executed if no section is set by a caller
+/// Name of a recipe that is executed if no recipe is set by a caller
 const DEFAULT_RECIPE: &str = "_default";
 
 #[macro_export]
@@ -69,7 +69,7 @@ impl RunOpts {
 }
 
 /// Recipe detailed information
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct RecipeDesc {
     /// recipe's name
     pub name: String,
@@ -189,6 +189,16 @@ struct RecipeItem {
     vars: Vec<String>,
     /// global recipe flags (i.e., echo off)
     flags: u32,
+}
+
+/// Recipe content
+pub struct RecipeContent {
+    /// File name where the recipe is located
+    pub filename: String,
+    /// recipe content with its declaration
+    pub content: Vec<String>,
+    /// recipe is enable/disabled
+    pub enabled: bool,
 }
 
 impl Engine {
@@ -349,6 +359,82 @@ impl Engine {
             }
         }
         v
+    }
+
+    /// Finds the first recipe after the line `line` in file `idx`. If there is no
+    /// recipes after that line, it returns usize::MAX
+    fn next_recipe(&self, file: usize, line: usize) -> usize {
+        let mut min = usize::MAX;
+        for r in self.recipes.iter() {
+            if r.loc.file != file || r.loc.line <= line {
+                continue
+            }
+            if min > r.loc.line {
+                min = r.loc.line;
+            }
+        }
+        if min != 0 && min != usize::MAX {
+            min += 1;
+        }
+        for d in self.files[file].disabled.iter() {
+            if d.line > line && d.line < min {
+                min = d.line;
+            }
+        }
+        if min == usize::MAX {
+            min = self.files[file].orig_lines.len();
+        }
+        return min;
+    }
+
+    /// Returns the content of a recipe that would be executed
+    pub fn recipe_content(&self, name: &str) -> Result<RecipeContent, HakuError> {
+        if let Ok(desc) = self.find_recipe(name) {
+            let fidx = desc.loc.file;
+            let sidx = if desc.loc.line == 0 {
+                desc.loc.line
+            } else {
+                desc.loc.line+1
+            };
+            let eidx = self.next_recipe(fidx, sidx);
+            let mut content = Vec::new();
+            for lidx in sidx..eidx {
+                content.push(self.files[fidx].orig_lines[lidx].clone());
+            }
+
+            return Ok(RecipeContent{
+                filename: self.file_name(fidx).unwrap_or("").to_string(),
+                content,
+                enabled: true,
+            });
+        }
+
+        // no active recipe found with this name. Look for a disabled one
+        for (fidx, f) in self.files.iter().enumerate() {
+            let mut sidx = usize::MAX;
+            for r in f.disabled.iter() {
+                if r.name == name {
+                    sidx = r.line;
+                    break;
+                }
+            }
+
+            if sidx != usize::MAX {
+                let eidx = self.next_recipe(fidx, sidx);
+                let mut content = Vec::new();
+                for lidx in sidx..eidx {
+                    content.push(f.orig_lines[lidx].clone());
+                }
+
+                return Ok(RecipeContent{
+                    filename: self.file_name(fidx).unwrap_or("").to_string(),
+                    content,
+                    enabled: false,
+                });
+            }
+        }
+
+        Err(HakuError::RecipeNotFoundError(name.to_string()))
     }
 
     /// Returns a list of unique user-defined features found in loaded scripts
@@ -1146,7 +1232,7 @@ impl Engine {
     /// Executed before staring the next recipe. It does all preparations, like recipe
     /// local variable initialization.
     fn enter_recipe(&mut self, recipe: &RecipeItem) {
-        output!(self.opts.verbosity, 2, "enter section. Vars {:?}, Free {:?}", recipe.vars, self.varmgr.free);
+        output!(self.opts.verbosity, 2, "enter recipe. Vars {:?}, Free {:?}", recipe.vars, self.varmgr.free);
         if recipe.vars.is_empty() || self.varmgr.free.is_empty() {
             return;
         }
@@ -1195,7 +1281,7 @@ mod vm_test {
     fn load() {
         let opts = RunOpts::new();
         let mut vm = Engine::new(opts);
-        let res = vm.load_from_str("section: deps");
+        let res = vm.load_from_str("recipe: deps");
         assert!(res.is_ok());
         assert_eq!(vm.files.len(), 1);
         assert_eq!(vm.recipes.len(), 1);

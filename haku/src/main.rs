@@ -129,6 +129,29 @@ fn main() -> Result<(), HakuError> {
         exit(1);
     }
 
+    if !conf.show_recipe.is_empty() {
+        match eng.recipe_content(&conf.show_recipe) {
+            Err(e) => {
+                eprintln!("{:?}", e);
+                exit(1);
+            },
+            Ok(rcp) => {
+                if !rcp.filename.is_empty() {
+                    println!("{}", rcp.filename);
+                }
+                if rcp.enabled {
+                    println!("Active recipe: {}", conf.show_recipe);
+                } else {
+                    println!("Disabled recipe: {}", conf.show_recipe);
+                }
+                for line in rcp.content {
+                    println!("  {}", line);
+                }
+            },
+        }
+        exit(0);
+    }
+
     if conf.list || conf.show_features {
         display_recipes(eng, &conf);
         exit(0);

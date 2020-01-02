@@ -24,6 +24,8 @@ pub struct DisabledRecipe {
     pub desc: String,
     /// list of features when the recipe is enabled
     pub feat: String,
+    /// the first line number
+    pub line: usize,
 }
 
 /// A single operation description
@@ -43,6 +45,7 @@ pub(crate) struct HakuFile {
     pub(crate) disabled: Vec<DisabledRecipe>,
     /// list of all user-defined features found in the script
     pub(crate) user_feats: Vec<String>,
+    pub(crate) orig_lines: Vec<String>,
 }
 
 /// What to skip while parsing the script
@@ -102,6 +105,7 @@ impl HakuFile {
             ops: Vec::new(),
             disabled: Vec::new(),
             user_feats: Vec::new(),
+            orig_lines: Vec::new(),
         }
     }
 
@@ -226,6 +230,7 @@ impl HakuFile {
         for line in buffered.lines() {
             idx += 1;
             if let Ok(l) = line {
+                hk.orig_lines.push(l.trim_end().to_string());
                 let l = l.trim();
                 full_line += l;
                 if full_line.ends_with('\\') || full_line == "" {
@@ -253,6 +258,7 @@ impl HakuFile {
         let mut idx: usize = 0;
         for l in src.lines() {
             idx += 1;
+            hk.orig_lines.push(l.trim_end().to_string());
             let l = l.trim();
             full_line += l;
             if full_line.ends_with('\\') || full_line == "" {
@@ -304,6 +310,7 @@ impl HakuFile {
                             name: name.to_string(),
                             desc: ds.next_desc.clone(),
                             feat: ds.next_fstr.clone(),
+                            line: o.line,
                         });
                     } else if skip != Skip::None || ds.pass {
                         skip = Skip::None;
@@ -314,6 +321,7 @@ impl HakuFile {
                             name: name.to_string(),
                             desc: ds.desc.clone(),
                             feat: ds.fstr.clone(),
+                            line: o.line,
                         });
                         skip = Skip::Recipe;
                     }
