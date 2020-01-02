@@ -174,8 +174,10 @@ pub struct Engine {
 pub struct RecipeLoc {
     // the number of file (in `engine.files` list)
     pub file: usize,
-    // the line number
+    // the line number in operation list
     pub line: usize,
+    // the line number in the script
+    pub script_line: usize,
 }
 
 /// Describes a recipe
@@ -313,6 +315,7 @@ impl Engine {
                             loc: RecipeLoc{
                                 line: line_idx,
                                 file: file_idx,
+                                script_line: op.line,
                             },
                             depends: Vec::new(),
                             system: Engine::is_system_recipe(&nm),
@@ -366,15 +369,12 @@ impl Engine {
     fn next_recipe(&self, file: usize, line: usize) -> usize {
         let mut min = usize::MAX;
         for r in self.recipes.iter() {
-            if r.loc.file != file || r.loc.line <= line {
+            if r.loc.file != file || r.loc.script_line <= line {
                 continue
             }
-            if min > r.loc.line {
-                min = r.loc.line;
+            if min > r.loc.script_line {
+                min = r.loc.script_line;
             }
-        }
-        if min != 0 && min != usize::MAX {
-            min += 1;
         }
         for d in self.files[file].disabled.iter() {
             if d.line > line && d.line < min {
@@ -391,13 +391,17 @@ impl Engine {
     pub fn recipe_content(&self, name: &str) -> Result<RecipeContent, HakuError> {
         if let Ok(desc) = self.find_recipe(name) {
             let fidx = desc.loc.file;
-            let sidx = if desc.loc.line == 0 {
-                desc.loc.line
-            } else {
-                desc.loc.line+1
-            };
-            let eidx = self.next_recipe(fidx, sidx);
+            let sidx = desc.loc.script_line;
+            let mut eidx = self.next_recipe(fidx, sidx);
             let mut content = Vec::new();
+
+            // ignore all doc comments and feature lists related to the next section
+            while eidx > sidx && (
+                self.files[fidx].orig_lines[eidx-1].trim_start().starts_with("#[")
+                || self.files[fidx].orig_lines[eidx-1].trim_start().starts_with("##")) {
+                eidx -= 1;
+            }
+
             for lidx in sidx..eidx {
                 content.push(self.files[fidx].orig_lines[lidx].clone());
             }
@@ -594,7 +598,7 @@ impl Engine {
         let op = self.files[loc.file].ops[loc.line].clone();
         let mut sec_item: RecipeItem = RecipeItem{
             name: String::new(),
-            loc: RecipeLoc{file: 0, line: 0},
+            loc: RecipeLoc{file: 0, line: 0, script_line: 0,},
             vars: Vec::new(),
             flags: 0,
         };
