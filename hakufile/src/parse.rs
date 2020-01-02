@@ -56,6 +56,46 @@ enum Skip {
     Recipe,
 }
 
+/// Dead code elimination process state
+struct DeadState {
+    // for current recipe
+    pass: bool,
+    desc: String,
+    fstr: String,
+    f_list: Vec<OpItem>,
+
+    // for next recipe in case of the current one is disabled
+    next_pass: bool,
+    next_desc: String,
+    next_fstr: String,
+    next_f_list: Vec<OpItem>,
+}
+
+impl DeadState {
+    fn new() -> Self {
+        DeadState {
+            pass: true,
+            desc: String::new(),
+            fstr: String::new(),
+            f_list: Vec::new(),
+            next_pass: true,
+            next_desc: String::new(),
+            next_fstr: String::new(),
+            next_f_list: Vec::new(),
+        }
+    }
+    fn reset(&mut self) {
+        self.pass = true;
+        self.desc.clear();
+        self.fstr.clear();
+        self.f_list.clear();
+        self.next_pass = true;
+        self.next_desc.clear();
+        self.next_fstr.clear();
+        self.next_f_list.clear();
+    }
+}
+
 impl HakuFile {
     pub(crate) fn new() -> Self {
         HakuFile {
@@ -171,7 +211,7 @@ impl HakuFile {
         Ok(())
     }
 
-    /// Loads and parses a script from a file. If thea script contains INCLUDE statements, all
+    /// Loads and parses a script from a file. If the script contains INCLUDE statements, all
     /// included files are loaded and parsed as well
     pub fn load_from_file(path: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
         let mut hk = HakuFile::new();
@@ -231,62 +271,70 @@ impl HakuFile {
     /// Removes all disabled blocks, but keep disabled recipe - to be able to list them
     pub fn remove_dead_code(&mut self) {
         let mut skip = Skip::None;
-        let mut pass = true;
+        let mut ds = DeadState::new();
         let mut op_list: Vec<OpItem> = Vec::new();
-        let mut f_list: Vec<OpItem> = Vec::new();
-        let mut desc = String::new();
-        let mut fstr = String::new();
         let mut nesting = 0;
 
         for o in self.ops.iter().cloned() {
             match o.op {
                 Op::Comment(_) => continue,
                 Op::DocComment(ref s) => {
-                    desc = s.to_string();
-                    f_list.push(o);
+                    if skip == Skip::Recipe {
+                        ds.next_desc = s.to_string();
+                        ds.next_f_list.push(o);
+                    } else {
+                        ds.desc = s.to_string();
+                        ds.f_list.push(o);
+                    }
                 },
                 Op::Feature(b, ref s) => {
-                    pass &=b;
-                    f_list.push(o.clone());
-                    fstr += s;
+                    if skip == Skip::Recipe {
+                        ds.next_pass &= b;
+                        ds.next_f_list.push(o.clone());
+                        ds.next_fstr += s;
+                    } else {
+                        ds.pass &=b;
+                        ds.f_list.push(o.clone());
+                        ds.fstr += s;
+                    }
                 },
                 Op::Recipe(ref name, _, _, _) => {
-                    if skip != Skip::None || pass {
-                        skip = Skip::None;
-                        op_list.append(&mut f_list);
-                        op_list.push(o);
-                    } else if !pass {
+                    if skip == Skip::Recipe && !ds.next_pass {
                         self.disabled.push(DisabledRecipe{
                             name: name.to_string(),
-                            desc: desc.clone(),
-                            feat: fstr.clone(),
+                            desc: ds.next_desc.clone(),
+                            feat: ds.next_fstr.clone(),
+                        });
+                    } else if skip != Skip::None || ds.pass {
+                        skip = Skip::None;
+                        op_list.append(&mut ds.f_list);
+                        op_list.push(o);
+                    } else if !ds.pass {
+                        self.disabled.push(DisabledRecipe{
+                            name: name.to_string(),
+                            desc: ds.desc.clone(),
+                            feat: ds.fstr.clone(),
                         });
                         skip = Skip::Recipe;
                     }
-                    pass = true;
-                    fstr.clear();
-                    desc.clear();
-                    f_list.clear();
+                    ds.reset();
                 },
                 Op::If(_) | Op::While(_) | Op::For(_, _) => {
                     if skip != Skip::None {
                         nesting += 1;
                     } else {
-                        if pass {
+                        if ds.pass {
                             op_list.push(o);
                         } else {
                             skip = Skip::Command;
                             nesting = 1;
                         }
                     }
-                    pass = true;
-                    fstr.clear();
-                    desc.clear();
-                    f_list.clear();
+                    ds.reset();
                 },
                 Op::StmtClose => {
                     if skip == Skip::None {
-                        if pass {
+                        if ds.pass {
                             op_list.push(o);
                         }
                     } else if skip == Skip::Command {
@@ -295,19 +343,13 @@ impl HakuFile {
                             skip =Skip::None;
                         }
                     }
-                    pass = true;
-                    fstr.clear();
-                    desc.clear();
-                    f_list.clear();
+                    ds.reset();
                 },
                 _ => {
-                    if skip == Skip::None && pass {
+                    if skip == Skip::None && ds.pass {
                         op_list.push(o);
                     }
-                    pass = true;
-                    fstr.clear();
-                    desc.clear();
-                    f_list.clear();
+                    ds.reset();
                 },
             }
         }
