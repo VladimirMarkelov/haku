@@ -15,6 +15,8 @@ pub struct Config {
     pub recipe: String,
     pub logfile: String,
     pub features: Vec<String>,
+    pub show_all: bool,
+    pub show_features: bool,
 }
 
 impl Config {
@@ -24,6 +26,8 @@ impl Config {
             list: false,
             verbose: 0,
             version: false,
+            show_all: false,
+            show_features: false,
             args: Vec::new(),
             filename: String::new(),
             recipe: String::new(),
@@ -58,6 +62,8 @@ pub fn parse_args() -> Result<Config, HakuError> {
     opts.optopt("f", "file", "Haku file path", "FILENAME");
     opts.optopt("", "log-file", "log file path", "FILEPATH");
     opts.optopt("", "feature", "use features", "Feature1,Feature2");
+    opts.optflag("a", "all", "list all sections: available and disabled ones");
+    opts.optflag("", "list-features", "list user-defined features used by a script");
 
     let matches: Matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -75,6 +81,8 @@ pub fn parse_args() -> Result<Config, HakuError> {
 
     conf.list = matches.opt_present("l");
     conf.dry_run = matches.opt_present("dry-run");
+    conf.show_all = matches.opt_present("a");
+    conf.show_features = matches.opt_present("list-features");
     if matches.opt_present("v") {
         conf.verbose = matches.opt_count("v");
     }

@@ -35,14 +35,21 @@ fn check_feature_val(val: &str, p: Pairs<Rule>, neg: bool) -> bool {
    found
 }
 
-/// Checks if any feature is in a list of enabled features.
+/// Checks if any feature is in a list of enabled features. The function does not use short
+/// way to evaluate feature usage because it has to fill the list of mentioned user-defined
+/// ones that later a caller may print out.
 ///
 /// Arguments:
 ///
 /// * `vals` - feature list to check
 /// * `p` - list of enabled features
 /// * `neg` - invert the result
-fn check_feature_list(vals: &[String], p: Pairs<Rule>, neg: bool) -> bool {
+/// * `feats` - vector to collect all user-defined features
+fn check_feature_list(vals: &[String], p: Pairs<Rule>, neg: bool, feats: &mut Vec<String>) -> bool {
+    for fv in p.clone() {
+        let val_low = fv.as_str().to_lowercase();
+        feats.push(val_low);
+    }
     if vals.is_empty() {
         return false;
     }
@@ -69,7 +76,9 @@ fn check_feature_list(vals: &[String], p: Pairs<Rule>, neg: bool) -> bool {
 
 /// Checks the list of features in a directive against list of enabled features.
 /// Returns `true` if all features are in list of enabled features.
-pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts) -> Result<bool, String> {
+///
+/// * `feats` - vector to collect all user-defined features
+pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts, feats: &mut Vec<String>) -> Result<bool, String> {
     let mut ok = true;
     for ss in p {
         let mut inverse = false;
@@ -85,13 +94,13 @@ pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts) -> Result<bool, String> {
                         "family" => check_feature_val(os_family(), sss.into_inner(), inverse),
                         "arch" => check_feature_val(arch(), sss.into_inner(), inverse),
                         "endian" => check_feature_val(endian(), sss.into_inner(), inverse),
-                        "feature" | "feat" => check_feature_list(&opts.feats, sss.into_inner(), inverse),
+                        "feature" | "feat" => check_feature_list(&opts.feats, sss.into_inner(), inverse, feats),
                         _ => return Err(f_name),
                     };
                     ok &= pass;
-                    if !ok {
-                        return Ok(ok)
-                    }
+                    // if !ok {
+                    //     return Ok(ok)
+                    // }
                 },
                 _ => { unreachable!() },
             }

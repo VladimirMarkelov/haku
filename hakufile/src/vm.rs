@@ -343,9 +343,29 @@ impl Engine {
     /// Returns info about all loaded disabled recipes
     pub fn disabled_recipes(&self) -> Vec<DisabledRecipe> {
         let mut v = Vec::new();
-        for fidx in 0..self.files.len() {
-            for ds in self.files[fidx].disabled.iter() {
+        for file in self.files.iter() {
+            for ds in file.disabled.iter() {
                 v.push(ds.clone());
+            }
+        }
+        v
+    }
+
+    /// Returns a list of unique user-defined features found in loaded scripts
+    pub fn user_features(&self) -> Vec<String> {
+        let mut v: Vec<String> = Vec::new();
+        for file in self.files.iter() {
+            for feat in file.user_feats.iter() {
+                let mut unique = true;
+                for ex in v.iter() {
+                    if ex == feat {
+                        unique = false;
+                        break;
+                    }
+                }
+                if unique {
+                    v.push(feat.clone());
+                }
             }
         }
         v

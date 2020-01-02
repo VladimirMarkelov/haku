@@ -4,12 +4,33 @@ use std::path::{Path};
 use std::process::exit;
 use std::collections::HashSet;
 
-use config::{parse_args};
+use config::{parse_args, Config};
 
 use hakufile::errors::HakuError;
 use hakufile::vm::{Engine, RunOpts};
 
-fn display_recipes(eng: Engine) {
+fn nice_vec_print(lst: &[String]) {
+    for (idx, s) in lst.iter().enumerate() {
+        if idx > 0 {
+            print!(",");
+        }
+        print!("{}", s);
+    }
+}
+
+fn display_recipes(eng: Engine, conf: &Config) {
+    if conf.show_features {
+        let feats = eng.user_features();
+        if !feats.is_empty() {
+            print!("Features: ");
+            nice_vec_print(&feats);
+            println!();
+        }
+    }
+    if !conf.list {
+        return;
+    }
+
     let recipes = eng.recipes();
     let disabled = eng.disabled_recipes();
     if recipes.is_empty() && disabled.is_empty() {
@@ -31,10 +52,13 @@ fn display_recipes(eng: Engine) {
         }
         print!("    {}", s.name);
         if !s.vars.is_empty() {
-            print!(" ({:?})", s.vars)
+            print!(" (");
+            nice_vec_print(&s.vars);
+            print!(")");
         }
         if !s.depends.is_empty() {
-            print!(": {:?}", s.depends);
+            print!(": ");
+            nice_vec_print(&s.depends);
         }
         if !s.desc.is_empty() {
             print!(" #{}", s.desc);
@@ -42,7 +66,7 @@ fn display_recipes(eng: Engine) {
         println!();
     }
 
-    if disabled.is_empty() {
+    if disabled.is_empty() || !conf.show_all {
         return;
     }
     if !recipes.is_empty() {
@@ -105,10 +129,11 @@ fn main() -> Result<(), HakuError> {
         exit(1);
     }
 
-    if conf.list {
-        display_recipes(eng);
+    if conf.list || conf.show_features {
+        display_recipes(eng, &conf);
         exit(0);
     }
+
 
     let res = eng.run_recipe(&conf.recipe);
     match res {

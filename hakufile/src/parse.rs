@@ -16,7 +16,7 @@ use crate::vm::{RunOpts};
 pub struct TaskParser;
 
 /// Disabled recipe description
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct DisabledRecipe {
     /// recipe's name
     pub name: String,
@@ -41,6 +41,8 @@ pub(crate) struct HakuFile {
     pub(crate) ops: Vec<OpItem>,
     /// list of disabled recipes (for list command)
     pub(crate) disabled: Vec<DisabledRecipe>,
+    /// list of all user-defined features found in the script
+    pub(crate) user_feats: Vec<String>,
 }
 
 /// What to skip while parsing the script
@@ -59,6 +61,7 @@ impl HakuFile {
         HakuFile {
             ops: Vec::new(),
             disabled: Vec::new(),
+            user_feats: Vec::new(),
         }
     }
 
@@ -73,6 +76,7 @@ impl HakuFile {
             },
             Ok(p) => p,
         };
+        let mut feat_list: Vec<String> = Vec::new();
         for pair in pairs {
             match pair.as_rule() {
                 Rule::shell_stmt => {
@@ -138,7 +142,7 @@ impl HakuFile {
                 },
                 Rule::feature_list => {
                     let txt = pair.as_str();
-                    let pass = match process_feature(pair.into_inner(), opts) {
+                    let pass = match process_feature(pair.into_inner(), opts, &mut feat_list) {
                         Ok(b) => b,
                         Err(s) => return Err(HakuError::InvalidFeatureName(s, HakuError::err_line(idx))),
                     };
@@ -149,6 +153,20 @@ impl HakuFile {
                 },
             }
             // one rule per line only
+        }
+        if !feat_list.is_empty() {
+            for f in feat_list.drain(..) {
+                let mut unique = true;
+                for fe in self.user_feats.iter() {
+                    if &f == fe {
+                        unique = false;
+                        break;
+                    }
+                }
+                if unique {
+                    self.user_feats.push(f);
+                }
+            }
         }
         Ok(())
     }
