@@ -537,6 +537,7 @@ impl Engine {
             match op.op {
                 Op::Recipe(_, _, _, _) | Op::Return => return Ok(()),
                 Op::Include(_, _) => { i += 1; },
+                Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
                 Op::DocComment(_) | Op::Comment(_) => { i += 1; },
                 Op::Shell(flags, cmd) => { self.exec_cmd_shell(flags, &cmd, i)?; i += 1; },
                 Op::EitherAssign(chk, name, ops) => { self.exec_either_assign(chk, &name, &ops)?; i += 1; },
@@ -670,6 +671,7 @@ impl Engine {
             match op.op {
                 Op::Return | Op::Recipe(_,_,_,_) => return Ok(()),
                 Op::Include(_,_) => return Err(HakuError::IncludeInRecipeError(HakuError::err_line(self.real_line))),
+                Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
                 Op::Shell(flags, cmd) => {
                     let cmd_flags = sec_flags ^ flags;
                     self.exec_cmd_shell(cmd_flags, &cmd, idx)?; idx += 1;

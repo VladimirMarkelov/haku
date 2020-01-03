@@ -41,6 +41,8 @@ pub enum Op {
     /// * flags - runtime flags, e.g. ignore file not found errors
     /// * path to the script
     Include(u32, String),
+    /// Interrupt script with a error - error message
+    Error(String),
     /// List of features which enable a following block of code
     ///
     /// * passed - whether all mentioned features are on (i.e., the block must be executed or
@@ -191,6 +193,19 @@ pub fn build_include(p: Pairs<Rule>) -> Result<Op, HakuError> {
     }
 
     Ok(Op::Include(flags, cmd))
+}
+
+/// Parses a script line with error message
+pub fn build_error(p: Pairs<Rule>) -> Result<Op, HakuError> {
+    let mut cmd = String::new();
+    for s in p {
+        match s.as_rule() {
+            Rule::error_body => cmd = strip_quotes(s.as_str()).to_string(),
+            _ => { },
+        }
+    }
+
+    Ok(Op::Error(cmd))
 }
 
 /// Parses a script line with external shell execution

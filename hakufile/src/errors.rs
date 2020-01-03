@@ -49,6 +49,8 @@ pub enum HakuError {
     RecipeListArgError(String),
     #[error("Shell function requires an argument{0}")]
     EmptyShellArgError(String),
+    #[error("Execution interrupted with message: {0}")]
+    UserError(String),
 }
 
 impl HakuError {
