@@ -54,14 +54,6 @@ pub enum HakuError {
 }
 
 impl HakuError {
-    pub(crate) fn err_line(idx: usize) -> String {
-        if idx != usize::MAX {
-            format!("(line: {})", idx)
-        } else {
-            String::new()
-        }
-    }
-
     /// Generates detailed information about a place where the error happenned.
     pub(crate) fn error_extra(filename: &str, line: &str, line_no: usize) -> String {
         if !filename.is_empty() && !line.is_empty() {

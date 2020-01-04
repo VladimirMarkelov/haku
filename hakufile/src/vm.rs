@@ -163,6 +163,8 @@ pub struct Engine {
     cond_stack: Vec<CondItem>,
     /// real line of the currently executed line (to generate more helpful error message)
     real_line: usize,
+    /// file index of currently executing line
+    file_idx: usize,
 }
 
 /// Describes a recipe location
@@ -213,6 +215,7 @@ impl Engine {
             varmgr: VarMgr::new(opts.verbosity),
             cond_stack: Vec::new(),
             real_line: usize::MAX,
+            file_idx: usize::MAX,
             opts,
             shell,
         };
@@ -232,9 +235,9 @@ impl Engine {
     }
 
     /// Generates extra info for an error
-    fn error_extra(&self, fidx: usize, lidx: usize) -> String {
-        let (filename, line) = self.line_desc(fidx, lidx);
-        HakuError::error_extra(&filename, &line, lidx)
+    fn error_extra(&self) -> String {
+        let (filename, line) = self.line_desc(self.file_idx, self.real_line);
+        HakuError::error_extra(&filename, &line, self.real_line)
     }
 
     /// Loads and parse a script from a file (all `include` statements are processed at
@@ -273,6 +276,7 @@ impl Engine {
         let mut to_include_flags: Vec<u32> = Vec::new();
         for op in &self.files[idx].ops {
             self.real_line = op.line;
+            self.file_idx = idx;
             match &op.op {
                 Op::Feature(_, _) => { /* Since dead code is removed, it can be skipped */ }
                 Op::Recipe(_, _, _, _) => break,
@@ -515,7 +519,7 @@ impl Engine {
     /// If a script line is a function and it is a system one(that changes the engine
     /// internal state), this function executes the line and returns `true`. Otherwise,
     /// this function does nothing and returns `false`.
-    fn system_call(&mut self, name: &str, ops: &[Op], idx: usize) -> Result<bool, HakuError> {
+    fn system_call(&mut self, name: &str, ops: &[Op]) -> Result<bool, HakuError> {
         let lowname = name.to_lowercase();
         match lowname.as_str() {
             "shell" => {
@@ -528,7 +532,7 @@ impl Engine {
                     .filter(|a| !a.is_empty())
                     .collect();
                 if v.is_empty() {
-                    return Err(HakuError::EmptyShellArgError(HakuError::err_line(idx)));
+                    return Err(HakuError::EmptyShellArgError(self.error_extra()));
                 }
                 output!(self.opts.verbosity, 1, "Setting new shell: {:?}", v);
                 self.shell = v;
@@ -545,6 +549,7 @@ impl Engine {
         while i < cnt {
             let op = self.files[file].ops[i].clone();
             self.real_line = op.line;
+            self.file_idx = file;
             match op.op {
                 Op::Recipe(_, _, _, _) | Op::Return => return Ok(()),
                 Op::Include(_, _) => {
@@ -555,7 +560,7 @@ impl Engine {
                     i += 1;
                 }
                 Op::Shell(flags, cmd) => {
-                    self.exec_cmd_shell(flags, &cmd, i)?;
+                    self.exec_cmd_shell(flags, &cmd)?;
                     i += 1;
                 }
                 Op::EitherAssign(chk, name, ops) => {
@@ -571,7 +576,7 @@ impl Engine {
                     i += 1;
                 }
                 Op::Func(name, ops) => {
-                    let is_processed = self.system_call(&name, &ops, i)?;
+                    let is_processed = self.system_call(&name, &ops)?;
                     if !is_processed {
                         self.exec_func(&name, &ops)?;
                     }
@@ -661,17 +666,17 @@ impl Engine {
         match op.op {
             Op::Recipe(name, flags, vars, deps) => {
                 if vc.iter().any(|s| s.name == name) || deps.iter().any(|d| d == &name) {
-                    return Err(HakuError::RecipeRecursionError(name, HakuError::err_line(op.line)));
+                    return Err(HakuError::RecipeRecursionError(name, self.error_extra()));
                 }
                 for dep in deps {
                     if let Some(ps) = parent {
                         if ps.iter().any(|p| p == &dep) {
-                            return Err(HakuError::RecipeRecursionError(dep, HakuError::err_line(op.line)));
+                            return Err(HakuError::RecipeRecursionError(dep, self.error_extra()));
                         }
                     }
                     if let Some(fnd) = found {
                         if fnd.iter().any(|f| f.name == dep) {
-                            return Err(HakuError::RecipeRecursionError(dep, HakuError::err_line(op.line)));
+                            return Err(HakuError::RecipeRecursionError(dep, self.error_extra()));
                         }
                     }
                     let next_s = self.find_recipe(&dep)?;
@@ -716,13 +721,14 @@ impl Engine {
         while idx < l {
             let op = (self.files[file].ops[idx]).clone();
             self.real_line = op.line;
+            self.file_idx = file;
             match op.op {
                 Op::Return | Op::Recipe(_, _, _, _) => return Ok(()),
-                Op::Include(_, _) => return Err(HakuError::IncludeInRecipeError(HakuError::err_line(self.real_line))),
+                Op::Include(_, _) => return Err(HakuError::IncludeInRecipeError(self.error_extra())),
                 Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
                 Op::Shell(flags, cmd) => {
                     let cmd_flags = sec_flags ^ flags;
-                    self.exec_cmd_shell(cmd_flags, &cmd, idx)?;
+                    self.exec_cmd_shell(cmd_flags, &cmd)?;
                     idx += 1;
                 }
                 Op::EitherAssign(chk, name, ops) => {
@@ -738,7 +744,7 @@ impl Engine {
                     idx += 1;
                 }
                 Op::Func(name, ops) => {
-                    let is_processed = self.system_call(&name, &ops, idx)?;
+                    let is_processed = self.system_call(&name, &ops)?;
                     if !is_processed {
                         self.exec_func(&name, &ops)?;
                     }
@@ -813,7 +819,7 @@ impl Engine {
             }
             idx += 1;
         }
-        Err(HakuError::NoMatchingEndError(tp.to_string(), HakuError::err_line(self.real_line)))
+        Err(HakuError::NoMatchingEndError(tp.to_string(), self.error_extra()))
     }
 
     /// Looks for `end`, `else` or `elseif` for the current `if` statement in case of `if`
@@ -841,7 +847,7 @@ impl Engine {
             }
             idx += 1;
         }
-        Err(HakuError::NoMatchingEndError(tp.to_string(), HakuError::err_line(self.real_line)))
+        Err(HakuError::NoMatchingEndError(tp.to_string(), self.error_extra()))
     }
 
     /// Executes external command and collects its output. The command and its output are not
@@ -860,9 +866,7 @@ impl Engine {
         cmd.arg(&cmdline);
         let out = match cmd.output() {
             Ok(o) => o,
-            Err(e) => {
-                return Err(HakuError::ExecFailureError(cmdline, e.to_string(), HakuError::err_line(self.real_line)))
-            }
+            Err(e) => return Err(HakuError::ExecFailureError(cmdline, e.to_string(), self.error_extra())),
         };
 
         if !out.status.success() {
@@ -872,7 +876,7 @@ impl Engine {
             return Err(HakuError::ExecFailureError(
                 cmdline.to_string(),
                 format!("exit code {}", out.status.code().unwrap_or(0)),
-                HakuError::err_line(self.real_line),
+                self.error_extra(),
             ));
         }
 
@@ -888,7 +892,7 @@ impl Engine {
     /// Before execution the engine substitutes used variables in command line.
     ///
     /// Used by script lines that are standalone shell calls, like `rm "${filename}"`
-    fn exec_cmd_shell(&mut self, flags: u32, cmdline: &str, line: usize) -> Result<(), HakuError> {
+    fn exec_cmd_shell(&mut self, flags: u32, cmdline: &str) -> Result<(), HakuError> {
         let no_fail = is_flag_on(flags, FLAG_PASS);
         let cmdline = self.varmgr.interpolate(&cmdline, true);
         output!(self.opts.verbosity, 2, "ExecShell[{}]: {}", no_fail, cmdline);
@@ -908,7 +912,7 @@ impl Engine {
                 if is_flag_on(flags, FLAG_PASS) {
                     return Ok(());
                 }
-                return Err(HakuError::ExecFailureError(cmdline, e.to_string(), HakuError::err_line(line)));
+                return Err(HakuError::ExecFailureError(cmdline, e.to_string(), self.error_extra()));
             }
         };
 
@@ -917,7 +921,7 @@ impl Engine {
                 None => "(unknown exit code)".to_string(),
                 Some(c) => format!("(exit code: {}", c),
             };
-            return Err(HakuError::ExecFailureError(cmdline.to_string(), code, HakuError::err_line(line)));
+            return Err(HakuError::ExecFailureError(cmdline.to_string(), code, self.error_extra()));
         }
 
         Ok(())
@@ -1018,7 +1022,7 @@ impl Engine {
         output!(self.opts.verbosity, 3, "func {} with {} args returned {:?}", name, ops.len(), r);
         match r {
             Ok(r) => Ok(r),
-            Err(s) => Err(HakuError::FunctionError(format!("{}: {}", s, HakuError::err_line(self.real_line)))),
+            Err(s) => Err(HakuError::FunctionError(format!("{}: {}", s, self.error_extra()))),
         }
     }
 
@@ -1047,7 +1051,7 @@ impl Engine {
     fn exec_else(&mut self, file: usize, idx: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec else");
         if self.cond_stack.is_empty() {
-            return Err(HakuError::StrayElseError(HakuError::err_line(self.real_line)));
+            return Err(HakuError::StrayElseError(self.error_extra()));
         }
         let op = self.cond_stack[self.cond_stack.len() - 1].clone();
         match op.cond {
@@ -1058,7 +1062,7 @@ impl Engine {
                     Ok(self.find_end(file, idx + 1, "else")?)
                 }
             }
-            _ => Err(HakuError::StrayElseError(HakuError::err_line(self.real_line))),
+            _ => Err(HakuError::StrayElseError(self.error_extra())),
         }
     }
 
@@ -1069,7 +1073,7 @@ impl Engine {
     fn exec_elseif(&mut self, ops: &[Op], file: usize, idx: usize) -> Result<usize, HakuError> {
         output!(self.opts.verbosity, 3, "Exec elseif");
         if self.cond_stack.is_empty() {
-            return Err(HakuError::StrayElseIfError(HakuError::err_line(self.real_line)));
+            return Err(HakuError::StrayElseIfError(self.error_extra()));
         }
         assert!(ops.len() == 1);
 
@@ -1083,7 +1087,7 @@ impl Engine {
                 if v.is_true() {
                     let mut cnd = match self.cond_stack.pop() {
                         Some(cc) => cc,
-                        None => return Err(HakuError::InternalError(HakuError::err_line(self.real_line))),
+                        None => return Err(HakuError::InternalError(self.error_extra())),
                     };
                     cnd.cond = Condition::If(true);
                     self.cond_stack.push(cnd);
@@ -1093,7 +1097,7 @@ impl Engine {
                     Ok(else_idx)
                 }
             }
-            _ => Err(HakuError::StrayElseIfError(HakuError::err_line(self.real_line))),
+            _ => Err(HakuError::StrayElseIfError(self.error_extra())),
         }
     }
 
@@ -1154,7 +1158,7 @@ impl Engine {
                 }
             }
         } else {
-            return Err(HakuError::StrayEndError(HakuError::err_line(self.real_line)));
+            return Err(HakuError::StrayEndError(self.error_extra()));
         }
     }
 
@@ -1169,7 +1173,7 @@ impl Engine {
                 }
             }
         }
-        Err(HakuError::NoMatchingForWhileError(HakuError::err_line(self.real_line)))
+        Err(HakuError::NoMatchingForWhileError(self.error_extra()))
     }
 
     /// Restarts the current `for` or `while` cycle from its first line.
@@ -1187,7 +1191,7 @@ impl Engine {
             }
         }
         if next == usize::MAX {
-            Err(HakuError::NoMatchingForWhileError(HakuError::err_line(self.real_line)))
+            Err(HakuError::NoMatchingForWhileError(self.error_extra()))
         } else {
             // step back to point to END statement
             Ok(next - 1)
@@ -1207,7 +1211,7 @@ impl Engine {
                     return Ok(false);
                 }
                 if step == 0 {
-                    return Err(HakuError::ForeverForError(HakuError::err_line(idx)));
+                    return Err(HakuError::ForeverForError(self.error_extra()));
                 }
                 self.varmgr.set_var(name, VarValue::Int(start));
                 self.cond_stack
