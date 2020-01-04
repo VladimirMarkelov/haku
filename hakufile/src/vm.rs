@@ -219,20 +219,22 @@ impl Engine {
         eng
     }
 
-    /// Generates detailed information about a place where the error happenned.
-    fn error_extra(&self, fidx: usize, lidx: usize) -> String {
-        let use_file = fidx != usize::MAX && fidx < self.files.len();
-        let use_line = lidx != usize::MAX && lidx < self.files[fidx].orig_lines.len();
-        let use_file = use_file && self.files.len() > 1;
-        if use_file && use_line {
-            format!(" in {} at line {}:\n    {}", self.included[fidx], lidx + 1, self.files[fidx].orig_lines[lidx])
-        } else if use_file {
-            format!(" in {} at line {}", self.included[fidx], lidx + 1)
-        } else if use_line {
-            format!(" at line {}:\n    {}", self.files[fidx].orig_lines[lidx], lidx + 1)
-        } else {
-            String::new()
+    /// Returns filename & its line by their indices
+    fn line_desc(&self, fidx: usize, lidx: usize) -> (String, String) {
+        if fidx == usize::MAX || fidx >= self.files.len() {
+            return (String::new(), String::new());
         }
+        let fname = if self.files.len() == 1 { String::new() } else { self.included[fidx].clone() };
+        if lidx == usize::MAX || lidx >= self.files[fidx].orig_lines.len() {
+            return (fname, String::new());
+        }
+        (fname, self.files[fidx].orig_lines[lidx].clone())
+    }
+
+    /// Generates extra info for an error
+    fn error_extra(&self, fidx: usize, lidx: usize) -> String {
+        let (filename, line) = self.line_desc(fidx, lidx);
+        HakuError::error_extra(&filename, &line, lidx)
     }
 
     /// Loads and parse a script from a file (all `include` statements are processed at
