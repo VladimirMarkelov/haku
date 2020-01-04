@@ -1,15 +1,15 @@
-use std::path::{Path, PathBuf};
-use std::ffi::OsStr;
 use std::env;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 
-use target::{arch, os, os_family, endian, pointer_width};
-use dirs;
 use chrono;
-use regex::Regex;
-use unicode_width::UnicodeWidthStr;
+use dirs;
 use rand::prelude::*;
+use regex::Regex;
+use target::{arch, endian, os, os_family, pointer_width};
+use unicode_width::UnicodeWidthStr;
 
-use crate::var::{VarValue};
+use crate::var::VarValue;
 
 // arch: aarch64, arm, asmjs, hexagon, mips, mips64, msp430, powerpc, powerpc64, s390x
 //       sparc, sparc64, wasm32, x86, x86_64, xcore
@@ -85,19 +85,16 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "filename" => extract_part(args, PathPart::Name),
         "add_ext" | "add-ext" => add_ext(args),
         "with_ext" | "with-ext" => replace_ext(args),
-        "with_filename" | "with-filename"
-            | "with_name" | "with-name" => replace_name(args),
+        "with_filename" | "with-filename" | "with_name" | "with-name" => replace_name(args),
         "with_stem" | "with-stem" => replace_stem(args),
         "join" => join_path(args),
         "temp" | "temp_dir" | "temp-dir" => system_path(SysPath::Temp),
-        "home" | "home_dir" | "home-dir"
-            | "user_dir" | "user-dir" => system_path(SysPath::Home),
+        "home" | "home_dir" | "home-dir" | "user_dir" | "user-dir" => system_path(SysPath::Home),
         "config" | "config_dir" | "config-dir" => system_path(SysPath::Config),
         "documents" | "docs_dir" | "docs-dir" => system_path(SysPath::Docs),
         "print" => print_all(args, false),
         "println" => print_all(args, true),
-        "time" | "format-time" | "format_time"
-            | "time-format" | "time_format" => format_time(args),
+        "time" | "format-time" | "format_time" | "time-format" | "time_format" => format_time(args),
         "trim" => trim_string(args, Where::All),
         "trim_left" | "trim-left" | "trim_start" | "trim-start" => trim_string(args, Where::Left),
         "trim_right" | "trim-right" | "trim_end" | "trim-end" => trim_string(args, Where::Right),
@@ -169,11 +166,7 @@ fn replace_ext(args: &[VarValue]) -> FuncResult {
         return Ok(args[0].clone());
     }
     let mut p = Path::new(&args[0].to_string()).to_owned();
-    let ext = if args.len() == 1 {
-        String::new()
-    } else {
-        args[1].to_string()
-    };
+    let ext = if args.len() == 1 { String::new() } else { args[1].to_string() };
     p.set_extension(ext);
     Ok(VarValue::Str(p.to_string_lossy().to_string()))
 }
@@ -199,7 +192,7 @@ fn add_ext(args: &[VarValue]) -> FuncResult {
     if !e.starts_with('.') {
         e = format!(".{}", e);
     }
-    Ok(VarValue::Str(p+&e))
+    Ok(VarValue::Str(p + &e))
 }
 
 /// Replaces the last name in a path:
@@ -244,11 +237,7 @@ fn replace_stem(args: &[VarValue]) -> FuncResult {
     let empty_path = Path::new("");
     let ext = p.extension().unwrap_or(&empty).to_string_lossy().to_string();
     let dir = p.parent().unwrap_or(&empty_path);
-    let fname = if ext.is_empty() {
-        new_stem
-    } else {
-        new_stem + "." + &ext
-    };
+    let fname = if ext.is_empty() { new_stem } else { new_stem + "." + &ext };
     Ok(VarValue::Str(dir.join(fname).to_string_lossy().to_string()))
 }
 
@@ -307,11 +296,7 @@ fn print_all(args: &[VarValue], add_new_line: bool) -> FuncResult {
 /// the format `"%Y%m%d-%H%M%S"` is used.
 fn format_time(args: &[VarValue]) -> FuncResult {
     let now = chrono::Local::now();
-    let format = if args.is_empty() {
-        "%Y%m%d-%H%M%S".to_string()
-    } else {
-        args[0].to_flat_string()
-    };
+    let format = if args.is_empty() { "%Y%m%d-%H%M%S".to_string() } else { args[0].to_flat_string() };
     let r = match format.to_lowercase().as_str() {
         "2822" | "rfc2822" => now.to_rfc2822(),
         "3339" | "rfc3339" => now.to_rfc3339(),
@@ -428,11 +413,7 @@ fn replace(args: &[VarValue]) -> FuncResult {
 
     let s = args[0].to_string();
     let what = args[1].to_string();
-    let with = if args.len() > 2 {
-        args[2].to_string()
-    } else {
-        String::new()
-    };
+    let with = if args.len() > 2 { args[2].to_string() } else { String::new() };
     Ok(VarValue::Str(s.replace(&what, &with)))
 }
 
@@ -449,9 +430,11 @@ fn match_regex(args: &[VarValue]) -> FuncResult {
         let rx = a.to_string();
         match Regex::new(&rx) {
             Err(e) => return Err(e.to_string()),
-            Ok(r) => if r.is_match(&s) {
-                return Ok(VarValue::Int(1));
-            },
+            Ok(r) => {
+                if r.is_match(&s) {
+                    return Ok(VarValue::Int(1));
+                }
+            }
         }
     }
     Ok(VarValue::Int(0))
@@ -487,13 +470,9 @@ fn pad(args: &[VarValue], loc: Where) -> FuncResult {
             let right = cnt / 2;
             let left = cnt - right;
             patt.repeat(left) + &s + &patt.repeat(right)
-        },
-        Where::Left => {
-            patt.repeat(cnt) + &s
-        },
-        Where::Right => {
-            s + &patt.repeat(cnt)
         }
+        Where::Left => patt.repeat(cnt) + &s,
+        Where::Right => s + &patt.repeat(cnt),
     };
     Ok(VarValue::from(res))
 }
@@ -587,7 +566,7 @@ fn rand_string(args: &[VarValue]) -> FuncResult {
     let mx = chr.len();
     if mx < 10 {
         let r: String = chr.into_iter().collect();
-        return Err(format!("alphabet '{}' is too short: must have at least 10 characters", r))
+        return Err(format!("alphabet '{}' is too short: must have at least 10 characters", r));
     }
 
     let mut rng = thread_rng();

@@ -1,10 +1,10 @@
-mod parse;
-mod feature;
 pub mod errors;
-mod ops;
-pub mod vm;
+mod feature;
 mod func;
+mod ops;
+mod parse;
 pub mod var;
+pub mod vm;
 
 #[macro_use]
 extern crate pest_derive;

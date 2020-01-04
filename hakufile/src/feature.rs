@@ -1,8 +1,8 @@
 use pest::iterators::Pairs;
-use target::{arch, os, os_family, endian, pointer_width};
+use target::{arch, endian, os, os_family, pointer_width};
 
-use crate::parse::{Rule};
-use crate::vm::{RunOpts};
+use crate::parse::Rule;
+use crate::vm::RunOpts;
 
 // arch: aarch64, arm, asmjs, hexagon, mips, mips64, msp430, powerpc, powerpc64, s390x
 //       sparc, sparc64, wasm32, x86, x86_64, xcore
@@ -32,7 +32,7 @@ fn check_feature_val(val: &str, p: Pairs<Rule>, neg: bool) -> bool {
         found = !found;
     }
 
-   found
+    found
 }
 
 /// Checks if any feature is in a list of enabled features. The function does not use short
@@ -85,8 +85,12 @@ pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts, feats: &mut Vec<String>) 
         let mut f_name: String = String::new();
         for sss in ss.into_inner() {
             match sss.as_rule() {
-                Rule::not_op => { inverse = true; },
-                Rule::feature_name => { f_name = sss.as_str().to_lowercase(); },
+                Rule::not_op => {
+                    inverse = true;
+                }
+                Rule::feature_name => {
+                    f_name = sss.as_str().to_lowercase();
+                }
                 Rule::feature_val => {
                     let pass = match f_name.as_str() {
                         "os" => check_feature_val(os(), sss.into_inner(), inverse),
@@ -101,8 +105,8 @@ pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts, feats: &mut Vec<String>) 
                     // if !ok {
                     //     return Ok(ok)
                     // }
-                },
-                _ => { unreachable!() },
+                }
+                _ => unreachable!(),
             }
         }
     }

@@ -1,22 +1,22 @@
 use std::fs::File;
-use std::io::{BufReader, BufRead};
+use std::io::{BufRead, BufReader};
 
 use pest::Parser;
 
-use crate::feature::process_feature;
 use crate::errors::HakuError;
-use crate::ops::{Op, build_recipe, build_shell_cmd,
-            build_for, build_func, build_assign, build_def_assign,
-            build_either_assign, build_either_def_assign, build_if,
-            build_elseif, build_while, build_include, build_error };
-use crate::vm::{RunOpts};
+use crate::feature::process_feature;
+use crate::ops::{
+    build_assign, build_def_assign, build_either_assign, build_either_def_assign, build_elseif, build_error, build_for,
+    build_func, build_if, build_include, build_recipe, build_shell_cmd, build_while, Op,
+};
+use crate::vm::RunOpts;
 
 #[derive(Parser)]
 #[grammar = "haku.pest"]
 pub struct TaskParser;
 
 /// Disabled recipe description
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct DisabledRecipe {
     /// recipe's name
     pub name: String,
@@ -29,7 +29,7 @@ pub struct DisabledRecipe {
 }
 
 /// A single operation description
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct OpItem {
     /// Operation
     pub(crate) op: Op,
@@ -49,7 +49,7 @@ pub(crate) struct HakuFile {
 }
 
 /// What to skip while parsing the script
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Skip {
     /// Nothing - the next line should be executed
     None,
@@ -101,103 +101,98 @@ impl DeadState {
 
 impl HakuFile {
     pub(crate) fn new() -> Self {
-        HakuFile {
-            ops: Vec::new(),
-            disabled: Vec::new(),
-            user_feats: Vec::new(),
-            orig_lines: Vec::new(),
-        }
+        HakuFile { ops: Vec::new(), disabled: Vec::new(), user_feats: Vec::new(), orig_lines: Vec::new() }
     }
 
     /// Parses a single script line. Each line must contain only one rule(command/statement)
     fn process_line(&mut self, line: &str, idx: usize, opts: &RunOpts) -> Result<(), HakuError> {
-        let res =  TaskParser::parse(Rule::expression, line);
+        let res = TaskParser::parse(Rule::expression, line);
 
         let pairs = match res {
             Err(e) => {
                 let msg = format!("'{}': {}", line, e.to_string());
                 return Err(HakuError::ParseError(msg, HakuError::err_line(idx)));
-            },
+            }
             Ok(p) => p,
         };
         let mut feat_list: Vec<String> = Vec::new();
         for pair in pairs {
             match pair.as_rule() {
                 Rule::shell_stmt => {
-                    self.ops.push(OpItem{op: build_shell_cmd(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_shell_cmd(pair.into_inner())?, line: idx });
+                }
                 Rule::comment => {
                     let mut inner = pair.into_inner();
                     let s = inner.next().unwrap().as_str();
-                    self.ops.push(OpItem{op: Op::Comment(s.to_owned()), line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::Comment(s.to_owned()), line: idx });
+                }
                 Rule::doc_comment => {
                     let mut inner = pair.into_inner();
                     let s = inner.next().unwrap().as_str();
-                    self.ops.push(OpItem{op: Op::DocComment(s.to_owned()), line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::DocComment(s.to_owned()), line: idx });
+                }
                 Rule::include_stmt => {
-                    self.ops.push(OpItem{op: build_include(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_include(pair.into_inner())?, line: idx });
+                }
                 Rule::error_stmt => {
-                    self.ops.push(OpItem{op: build_error(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_error(pair.into_inner())?, line: idx });
+                }
                 Rule::func => {
-                    self.ops.push(OpItem{op: build_func(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_func(pair.into_inner())?, line: idx });
+                }
                 Rule::stmt_close => {
-                    self.ops.push(OpItem{op: Op::StmtClose, line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::StmtClose, line: idx });
+                }
                 Rule::break_stmt => {
-                    self.ops.push(OpItem{op: Op::Break, line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::Break, line: idx });
+                }
                 Rule::cont_stmt => {
-                    self.ops.push(OpItem{op: Op::Continue, line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::Continue, line: idx });
+                }
                 Rule::either_def_assign => {
-                    self.ops.push(OpItem{op: build_either_def_assign(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_either_def_assign(pair.into_inner())?, line: idx });
+                }
                 Rule::either_assign => {
-                    self.ops.push(OpItem{op: build_either_assign(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_either_assign(pair.into_inner())?, line: idx });
+                }
                 Rule::def_assign => {
-                    self.ops.push(OpItem{op: build_def_assign(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_def_assign(pair.into_inner())?, line: idx });
+                }
                 Rule::assign => {
-                    self.ops.push(OpItem{op: build_assign(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_assign(pair.into_inner())?, line: idx });
+                }
                 Rule::while_stmt => {
-                    self.ops.push(OpItem{op: build_while(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_while(pair.into_inner())?, line: idx });
+                }
                 Rule::for_stmt => {
-                    self.ops.push(OpItem{op: build_for(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_for(pair.into_inner())?, line: idx });
+                }
                 Rule::if_stmt => {
-                    self.ops.push(OpItem{op: build_if(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_if(pair.into_inner())?, line: idx });
+                }
                 Rule::elseif_stmt => {
-                    self.ops.push(OpItem{op: build_elseif(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_elseif(pair.into_inner())?, line: idx });
+                }
                 Rule::else_stmt => {
-                    self.ops.push(OpItem{op: Op::Else, line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::Else, line: idx });
+                }
                 Rule::return_stmt => {
-                    self.ops.push(OpItem{op: Op::Return, line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::Return, line: idx });
+                }
                 Rule::recipe => {
-                    self.ops.push(OpItem{op: build_recipe(pair.into_inner())?, line: idx});
-                },
+                    self.ops.push(OpItem { op: build_recipe(pair.into_inner())?, line: idx });
+                }
                 Rule::feature_list => {
                     let txt = pair.as_str();
                     let pass = match process_feature(pair.into_inner(), opts, &mut feat_list) {
                         Ok(b) => b,
                         Err(s) => return Err(HakuError::InvalidFeatureName(s, HakuError::err_line(idx))),
                     };
-                    self.ops.push(OpItem{op: Op::Feature(pass, txt.to_string()), line: idx});
-                },
+                    self.ops.push(OpItem { op: Op::Feature(pass, txt.to_string()), line: idx });
+                }
                 _ => {
                     return Err(HakuError::ParseError(line.to_string(), HakuError::err_line(idx)));
-                },
+                }
             }
             // one rule per line only
         }
@@ -294,21 +289,21 @@ impl HakuFile {
                         ds.desc = s.to_string();
                         ds.f_list.push(o);
                     }
-                },
+                }
                 Op::Feature(b, ref s) => {
                     if skip == Skip::Recipe {
                         ds.next_pass &= b;
                         ds.next_f_list.push(o.clone());
                         ds.next_fstr += s;
                     } else {
-                        ds.pass &=b;
+                        ds.pass &= b;
                         ds.f_list.push(o.clone());
                         ds.fstr += s;
                     }
-                },
+                }
                 Op::Recipe(ref name, _, _, _) => {
                     if skip == Skip::Recipe && !ds.next_pass {
-                        self.disabled.push(DisabledRecipe{
+                        self.disabled.push(DisabledRecipe {
                             name: name.to_string(),
                             desc: ds.next_desc.clone(),
                             feat: ds.next_fstr.clone(),
@@ -319,7 +314,7 @@ impl HakuFile {
                         op_list.append(&mut ds.f_list);
                         op_list.push(o);
                     } else if !ds.pass {
-                        self.disabled.push(DisabledRecipe{
+                        self.disabled.push(DisabledRecipe {
                             name: name.to_string(),
                             desc: ds.desc.clone(),
                             feat: ds.fstr.clone(),
@@ -328,7 +323,7 @@ impl HakuFile {
                         skip = Skip::Recipe;
                     }
                     ds.reset();
-                },
+                }
                 Op::If(_) | Op::While(_) | Op::For(_, _) => {
                     if skip != Skip::None {
                         nesting += 1;
@@ -341,7 +336,7 @@ impl HakuFile {
                         }
                     }
                     ds.reset();
-                },
+                }
                 Op::StmtClose => {
                     if skip == Skip::None {
                         if ds.pass {
@@ -350,17 +345,17 @@ impl HakuFile {
                     } else if skip == Skip::Command {
                         nesting -= 1;
                         if nesting == 0 {
-                            skip =Skip::None;
+                            skip = Skip::None;
                         }
                     }
                     ds.reset();
-                },
+                }
                 _ => {
                     if skip == Skip::None && ds.pass {
                         op_list.push(o);
                     }
                     ds.reset();
-                },
+                }
             }
         }
         self.ops = op_list;

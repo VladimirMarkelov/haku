@@ -2,10 +2,10 @@ use std::convert::From;
 use std::env;
 use std::usize;
 
-use crate::{output};
+use crate::output;
 
 /// Result of execution of an external command with shell
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ExecResult {
     /// process exit code
     pub(crate) code: i32,
@@ -14,7 +14,7 @@ pub struct ExecResult {
 }
 
 /// Variable value
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum VarValue {
     /// undefined
     Undefined,
@@ -69,13 +69,14 @@ impl ToString for VarValue {
                     s += it;
                 }
                 s
-            },
-            VarValue::Exec(ex) =>
-                if ex.code == 0{
+            }
+            VarValue::Exec(ex) => {
+                if ex.code == 0 {
                     format!("{}", ex.stdout)
                 } else {
                     String::new()
-                },
+                }
+            }
         }
     }
 }
@@ -106,9 +107,9 @@ impl VarValue {
                     s += it;
                 }
                 s
-            },
-            VarValue::Exec(ex) =>
-                if ex.code == 0{
+            }
+            VarValue::Exec(ex) => {
+                if ex.code == 0 {
                     let mut s = String::new();
                     for l in ex.stdout.lines() {
                         if !s.is_empty() {
@@ -119,7 +120,8 @@ impl VarValue {
                     s
                 } else {
                     String::new()
-                },
+                }
+            }
         }
     }
 
@@ -149,35 +151,41 @@ impl VarValue {
         match self {
             VarValue::Undefined => 0,
             VarValue::Int(i) => *i,
-            VarValue::Str(s) => if s.is_empty() {
-                0
-            } else {
-                match s.parse::<i64>() {
-                    Err(_) => 0,
-                    Ok(v) => v,
-                }
-            },
-            VarValue::List(v) => if v.is_empty() || v[0].is_empty() {
-                0
-            } else {
-                match v[0].parse::<i64>() {
-                    Err(_) => 0,
-                    Ok(v) => v,
-                }
-            },
-            VarValue::Exec(ex) => if ex.stdout.is_empty() {
-                0
-            } else {
-                if let Some(s) = ex.stdout.lines().next() {
-                    let strim = s.trim();
-                    match strim.parse::<i64>() {
-                        Err(_) => 0,
-                        Ok(i) => i,
-                    }
-                } else {
+            VarValue::Str(s) => {
+                if s.is_empty() {
                     0
+                } else {
+                    match s.parse::<i64>() {
+                        Err(_) => 0,
+                        Ok(v) => v,
+                    }
                 }
-            },
+            }
+            VarValue::List(v) => {
+                if v.is_empty() || v[0].is_empty() {
+                    0
+                } else {
+                    match v[0].parse::<i64>() {
+                        Err(_) => 0,
+                        Ok(v) => v,
+                    }
+                }
+            }
+            VarValue::Exec(ex) => {
+                if ex.stdout.is_empty() {
+                    0
+                } else {
+                    if let Some(s) = ex.stdout.lines().next() {
+                        let strim = s.trim();
+                        match strim.parse::<i64>() {
+                            Err(_) => 0,
+                            Ok(i) => i,
+                        }
+                    } else {
+                        0
+                    }
+                }
+            }
         }
     }
 
@@ -186,26 +194,30 @@ impl VarValue {
         match self {
             VarValue::Undefined => match val {
                 VarValue::Undefined => true,
-                _ => false
+                _ => false,
             },
             VarValue::List(lst1) => match val {
-                VarValue::List(lst2) => if lst1.len() != lst2.len() {
-                    false
-                } else {
-                    for (idx, val) in lst1.iter().enumerate() {
-                        if val != &lst2[idx] {
-                            return false;
+                VarValue::List(lst2) => {
+                    if lst1.len() != lst2.len() {
+                        false
+                    } else {
+                        for (idx, val) in lst1.iter().enumerate() {
+                            if val != &lst2[idx] {
+                                return false;
+                            }
                         }
+                        true
                     }
-                    true
-                },
+                }
                 VarValue::Exec(ex_val) => ex_val.code == 0 && ex_val.stdout.trim() == &self.to_string(),
                 VarValue::Str(s) => &self.to_flat_string() == s,
-                VarValue::Int(i) => if lst1.len() != 1 {
-                    false
-                } else {
-                    lst1[0] == format!("{}", *i)
-                },
+                VarValue::Int(i) => {
+                    if lst1.len() != 1 {
+                        false
+                    } else {
+                        lst1[0] == format!("{}", *i)
+                    }
+                }
                 _ => false,
             },
             VarValue::Exec(ex) => match val {
@@ -226,11 +238,13 @@ impl VarValue {
                 VarValue::Exec(ex_val) => *i == i64::from(ex_val.code),
                 VarValue::Str(s_val) => &format!("{}", *i) == s_val,
                 VarValue::Int(i_val) => *i == *i_val,
-                VarValue::List(lst) => if lst.len() != 1 {
-                    false
-                } else {
-                    lst[0] == format!("{}", *i)
-                },
+                VarValue::List(lst) => {
+                    if lst.len() != 1 {
+                        false
+                    } else {
+                        lst[0] == format!("{}", *i)
+                    }
+                }
                 _ => false,
             },
         }
@@ -242,7 +256,7 @@ impl VarValue {
     fn cmp_greater(&self, val: &VarValue) -> bool {
         match self {
             VarValue::Undefined => match val {
-                _ => false
+                _ => false,
             },
             VarValue::Exec(ex) => match val {
                 VarValue::Exec(ex_val) => ex.code > ex_val.code,
@@ -253,7 +267,7 @@ impl VarValue {
             },
             VarValue::Str(s) => match val {
                 VarValue::Exec(ex_val) => s > &ex_val.stdout,
-                VarValue::Str(s_val) => s >s_val,
+                VarValue::Str(s_val) => s > s_val,
                 VarValue::Int(i) => s > &format!("{}", *i),
                 VarValue::List(_) => s > &val.to_flat_string(),
                 _ => true,
@@ -262,33 +276,39 @@ impl VarValue {
                 VarValue::Exec(ex_val) => *i > i64::from(ex_val.code),
                 VarValue::Str(s_val) => &format!("{}", *i) > s_val,
                 VarValue::Int(i_val) => *i > *i_val,
-                VarValue::List(lst) => if lst.is_empty() {
-                    true
-                } else {
-                    let vv = lst[0].parse::<i64>().unwrap_or(0i64);
-                    *i > vv
-                },
+                VarValue::List(lst) => {
+                    if lst.is_empty() {
+                        true
+                    } else {
+                        let vv = lst[0].parse::<i64>().unwrap_or(0i64);
+                        *i > vv
+                    }
+                }
                 _ => true,
             },
             VarValue::List(lst) => match val {
                 VarValue::Exec(ex) => ex.code != 0 || self.to_string() > ex.stdout,
                 VarValue::Str(s) => &self.to_flat_string() > s,
-                VarValue::Int(i) => if lst.is_empty() {
-                    false
-                } else {
-                    let vv = lst[0].parse::<i64>().unwrap_or(0i64);
-                    vv > *i
-                },
-                VarValue::List(lst2) => if lst.len() > lst2.len() {
-                    true
-                } else {
-                    for (idx, v) in lst.iter().enumerate() {
-                        if v <= &lst2[idx] {
-                            return false;
-                        }
+                VarValue::Int(i) => {
+                    if lst.is_empty() {
+                        false
+                    } else {
+                        let vv = lst[0].parse::<i64>().unwrap_or(0i64);
+                        vv > *i
                     }
-                    true
-                },
+                }
+                VarValue::List(lst2) => {
+                    if lst.len() > lst2.len() {
+                        true
+                    } else {
+                        for (idx, v) in lst.iter().enumerate() {
+                            if v <= &lst2[idx] {
+                                return false;
+                            }
+                        }
+                        true
+                    }
+                }
                 _ => true,
             },
         }
@@ -301,7 +321,7 @@ impl VarValue {
         match self {
             VarValue::Undefined => match val {
                 VarValue::Undefined => false,
-                _ => true
+                _ => true,
             },
             VarValue::Exec(ex) => match val {
                 VarValue::Exec(ex_val) => ex.code < ex_val.code,
@@ -321,33 +341,39 @@ impl VarValue {
                 VarValue::Exec(ex_val) => i < &i64::from(ex_val.code),
                 VarValue::Str(s_val) => &format!("{}", i) < s_val,
                 VarValue::Int(i_val) => i < i_val,
-                VarValue::List(lst) => if lst.is_empty() {
-                    false
-                } else {
-                    let vv = lst[0].parse::<i64>().unwrap_or(0i64);
-                    *i < vv
-                },
+                VarValue::List(lst) => {
+                    if lst.is_empty() {
+                        false
+                    } else {
+                        let vv = lst[0].parse::<i64>().unwrap_or(0i64);
+                        *i < vv
+                    }
+                }
                 _ => false,
             },
             VarValue::List(lst) => match val {
                 VarValue::Exec(ex) => ex.code == 0 && self.to_string() < ex.stdout,
                 VarValue::Str(s) => &self.to_flat_string() < s,
-                VarValue::Int(i) => if lst.is_empty() {
-                    false
-                } else {
-                    let vv = lst[0].parse::<i64>().unwrap_or(0i64);
-                    vv < *i
-                },
-                VarValue::List(lst2) => if lst.len() > lst2.len() {
-                    false
-                } else {
-                    for (idx, v) in lst.iter().enumerate() {
-                        if v >= &lst2[idx] {
-                            return false;
-                        }
+                VarValue::Int(i) => {
+                    if lst.is_empty() {
+                        false
+                    } else {
+                        let vv = lst[0].parse::<i64>().unwrap_or(0i64);
+                        vv < *i
                     }
-                    true
-                },
+                }
+                VarValue::List(lst2) => {
+                    if lst.len() > lst2.len() {
+                        false
+                    } else {
+                        for (idx, v) in lst.iter().enumerate() {
+                            if v >= &lst2[idx] {
+                                return false;
+                            }
+                        }
+                        true
+                    }
+                }
                 _ => false,
             },
         }
@@ -394,10 +420,7 @@ pub struct Var {
 }
 impl Default for Var {
     fn default() -> Self {
-        Var{
-            name: String::from(""),
-            value: VarValue::Undefined,
-        }
+        Var { name: String::from(""), value: VarValue::Undefined }
     }
 }
 
@@ -415,12 +438,7 @@ pub(crate) struct VarMgr {
 
 impl VarMgr {
     pub(crate) fn new(verbosity: usize) -> Self {
-        VarMgr {
-            recipe_vars: Vec::new(),
-            vars: Vec::new(),
-            free: Vec::new(),
-            verbosity,
-        }
+        VarMgr { recipe_vars: Vec::new(), vars: Vec::new(), free: Vec::new(), verbosity }
     }
 
     /// Change or creates a recipe local variable.
@@ -434,7 +452,7 @@ impl VarMgr {
             }
         }
         output!(self.verbosity, 2, "New recipe var {}: {:?}", name, val);
-        self.recipe_vars.push(Var{name: name.to_string(), value: val});
+        self.recipe_vars.push(Var { name: name.to_string(), value: val });
     }
 
     /// First, it looks for recipe local variable. If it exists, its values changes. Otherwise,
@@ -456,7 +474,7 @@ impl VarMgr {
             }
         }
         output!(self.verbosity, 2, "New var {}: {:?}", name, val);
-        self.vars.push(Var{name: name.to_string(), value: val});
+        self.vars.push(Var { name: name.to_string(), value: val });
     }
 
     /// Returns a value of a variable. First it looks for a recipe local. If it does not exist,
@@ -556,10 +574,10 @@ impl VarMgr {
                         } else {
                             res += self.var(var_name).to_string().as_str();
                         }
-                        s_ptr = &s_ptr[(bp+"}".len())..];
-                    },
+                        s_ptr = &s_ptr[(bp + "}".len())..];
+                    }
                 }
-                continue
+                continue;
             }
 
             res += &s_ptr[..start_s];
@@ -603,14 +621,14 @@ mod var_test {
     fn var_mgr() {
         let mut v = VarMgr::new(0);
         v.set_var("abc", VarValue::Int(123));
-        v.recipe_vars.push(Var{name: "def".to_string(), value: VarValue::Int(10)});
+        v.recipe_vars.push(Var { name: "def".to_string(), value: VarValue::Int(10) });
         let v1 = v.var("def");
         assert_eq!(v1, VarValue::Int(10));
         let v1 = v.var("abc");
         assert_eq!(v1, VarValue::Int(123));
         let v1 = v.var("abc2");
         assert_eq!(v1, VarValue::Undefined);
-        v.recipe_vars.push(Var{name: "abc".to_string(), value: VarValue::Int(50)});
+        v.recipe_vars.push(Var { name: "abc".to_string(), value: VarValue::Int(50) });
         let v1 = v.var("abc");
         assert_eq!(v1, VarValue::Int(50));
         v.recipe_vars.clear();

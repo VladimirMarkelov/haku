@@ -1,7 +1,7 @@
 use getopts::{Matches, Options};
-use std::process::exit;
 use std::env;
 use std::iter::FromIterator;
+use std::process::exit;
 
 use hakufile::errors::HakuError;
 
@@ -22,7 +22,7 @@ pub struct Config {
 
 impl Config {
     pub fn new() -> Self {
-        Config{
+        Config {
             dry_run: false,
             list: false,
             verbose: 0,
@@ -40,10 +40,7 @@ impl Config {
 }
 
 fn print_usage(program: &str, opts: &Options) {
-    let brief = format!(
-        "Usage: {} [options] recipe [arguments]",
-        program
-    );
+    let brief = format!("Usage: {} [options] recipe [arguments]", program);
     print!("{}", opts.usage(&brief));
 }
 
@@ -56,10 +53,7 @@ pub fn parse_args() -> Result<Config, HakuError> {
     opts.optflag("h", "help", "Show this help");
     opts.optflagmulti("v", "verbose", "Display extra information");
     opts.optflag("", "version", "Display application version");
-    opts.optflag(
-        "", "dry-run",
-        "Dry run: do not change todo list, only show which todos would be changed",
-    );
+    opts.optflag("", "dry-run", "Dry run: do not change todo list, only show which todos would be changed");
     opts.optflag("l", "list", "list available commands");
     opts.optopt("f", "file", "Haku file path", "FILENAME");
     opts.optopt("", "log-file", "log file path", "FILEPATH");
@@ -111,4 +105,3 @@ pub fn parse_args() -> Result<Config, HakuError> {
 
     Ok(conf)
 }
-

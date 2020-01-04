@@ -1,10 +1,10 @@
 use pest::iterators::{Pair, Pairs};
 
-use crate::parse::{Rule};
 use crate::errors::HakuError;
+use crate::parse::Rule;
 
 /// Describes initial condition of a `for` statement
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Seq {
     /// integer arithmetic progression (initial value, final value, step)
     Int(i64, i64, i64),
@@ -29,7 +29,7 @@ pub fn is_flag_on(flags: u32, flag: u32) -> bool {
 }
 
 /// Operations processed by the engine internally
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Op {
     /// Comment line (ignored) - comment text: starts with `#` or `//`
     Comment(String),
@@ -117,7 +117,6 @@ pub enum Op {
     Shell(u32, String),
 
     // here goes a list of basic building blocks of any expression
-
     /// Integer value(i64)
     Int(i64),
     /// String value
@@ -160,20 +159,20 @@ pub fn build_recipe(p: Pairs<Rule>) -> Result<Op, HakuError> {
                     vars.push(s_in.as_str().to_string());
                 }
                 if !vars.is_empty() {
-                    for v in &vars[..vars.len()-1] {
+                    for v in &vars[..vars.len() - 1] {
                         if v.starts_with('+') {
                             return Err(HakuError::RecipeListArgError(pstr));
                         }
                     }
                 }
-            },
+            }
             Rule::sec_deps => {
                 let inner = s.into_inner();
                 for s_in in inner {
                     deps.push(s_in.as_str().to_string());
                 }
-            },
-            _ => { /* skip all other parts like sec_sep */ },
+            }
+            _ => { /* skip all other parts like sec_sep */ }
         }
     }
 
@@ -188,7 +187,7 @@ pub fn build_include(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match s.as_rule() {
             Rule::cmd_flags => flags = str_to_flags(s.as_str()),
             Rule::include_body => cmd = strip_quotes(s.as_str()).to_string(),
-            _ => { },
+            _ => {}
         }
     }
 
@@ -201,7 +200,7 @@ pub fn build_error(p: Pairs<Rule>) -> Result<Op, HakuError> {
     for s in p {
         match s.as_rule() {
             Rule::error_body => cmd = strip_quotes(s.as_str()).to_string(),
-            _ => { },
+            _ => {}
         }
     }
 
@@ -216,7 +215,7 @@ pub fn build_shell_cmd(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match s.as_rule() {
             Rule::cmd_flags => flags = str_to_flags(s.as_str()),
             Rule::shell_cmd => cmd = s.as_str().to_string(),
-            _ => { },
+            _ => {}
         }
     }
 
@@ -271,20 +270,22 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                     }
                 }
                 return Ok(Seq::Idents(list));
-            },
+            }
             Rule::int_seq => {
                 let mut start = String::new();
                 let mut end = String::new();
                 let mut step = "1".to_string();
                 for int in pair.into_inner() {
                     match int.as_rule() {
-                        Rule::int => if start.is_empty() {
-                            start = int.as_str().to_owned();
-                        } else if end.is_empty() {
-                            end = int.as_str().to_owned();
-                        } else {
-                            step = int.as_str().to_owned();
-                        },
+                        Rule::int => {
+                            if start.is_empty() {
+                                start = int.as_str().to_owned();
+                            } else if end.is_empty() {
+                                end = int.as_str().to_owned();
+                            } else {
+                                step = int.as_str().to_owned();
+                            }
+                        }
                         _ => unimplemented!(),
                     }
                 }
@@ -307,7 +308,7 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                     return Err(HakuError::SeqError(istart, iend, istep));
                 }
                 return Ok(Seq::Int(istart, iend, istep));
-            },
+            }
             _ => unimplemented!(),
         }
     }
@@ -322,7 +323,7 @@ pub fn build_for(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match s.as_rule() {
             Rule::ident => var = s.as_str().to_string(),
             Rule::seq => seq = build_seq(s.into_inner())?,
-            _ => { },
+            _ => {}
         }
     }
     Ok(Op::For(var, seq))
@@ -331,23 +332,29 @@ pub fn build_for(p: Pairs<Rule>) -> Result<Op, HakuError> {
 /// Parses a single function or expression value
 fn build_arg_value(p: Pair<Rule>) -> Result<Op, HakuError> {
     match p.as_rule() {
-        Rule::int => if let Ok(i) = p.as_str().parse::<i64>() { return Ok(Op::Int(i)); },
+        Rule::int => {
+            if let Ok(i) = p.as_str().parse::<i64>() {
+                return Ok(Op::Int(i));
+            }
+        }
         Rule::exec => return Ok(Op::Exec(strip_quotes(p.as_str()).to_string())),
         Rule::string => {
             for in_p in p.into_inner() {
                 match in_p.as_rule() {
-                    Rule::rstr | Rule::squoted | Rule::dquoted => return Ok(Op::Str(strip_quotes(in_p.as_str()).to_string())),
+                    Rule::rstr | Rule::squoted | Rule::dquoted => {
+                        return Ok(Op::Str(strip_quotes(in_p.as_str()).to_string()))
+                    }
                     _ => unimplemented!(),
                 }
             }
-        },
+        }
         Rule::var => return Ok(Op::Var(strip_var_deco(p.as_str()).to_string())),
         Rule::func => return build_func(p.into_inner()),
         Rule::dquoted | Rule::squoted | Rule::rstr => return Ok(Op::Str(strip_quotes(p.as_str()).to_string())),
         _ => {
             println!("{:?}", p);
             unimplemented!();
-        },
+        }
     }
     unimplemented!()
 }
@@ -371,7 +378,7 @@ fn build_arg(p: Pairs<Rule>) -> Result<Op, HakuError> {
                 } else {
                     return Err(HakuError::ParseError(val, String::new()));
                 }
-            },
+            }
             _ => {
                 let op = build_arg_value(pair);
                 if neg {
@@ -380,7 +387,7 @@ fn build_arg(p: Pairs<Rule>) -> Result<Op, HakuError> {
                 } else {
                     return op;
                 }
-            },
+            }
         }
     }
     unimplemented!()
@@ -406,11 +413,11 @@ pub fn build_func(p: Pairs<Rule>) -> Result<Op, HakuError> {
             Rule::ident => name = pair.as_str().to_string(),
             Rule::arglist => {
                 return Ok(Op::Func(name, build_arglist(pair.into_inner())?));
-            },
+            }
             _ => {
                 println!("{:?}", pair);
                 unimplemented!();
-            },
+            }
         }
     }
     Ok(Op::Func(name, Vec::new()))
@@ -427,7 +434,7 @@ fn build_s_expr(p: Pairs<Rule>) -> Result<Op, HakuError> {
             _ => {
                 println!("{:?}", pair);
                 unimplemented!();
-            },
+            }
         }
     }
     if cmp.is_empty() {
@@ -445,12 +452,12 @@ fn build_and_expr(p: Pairs<Rule>) -> Result<Op, HakuError> {
             Rule::sexpr => {
                 let op = build_s_expr(pair.into_inner())?;
                 v.push(op);
-            },
-            Rule::and_op => {}, // do nothing
+            }
+            Rule::and_op => {} // do nothing
             _ => {
                 println!("{:?}", pair);
                 unimplemented!();
-            },
+            }
         }
     }
     Ok(Op::AndExpr(v))
@@ -462,11 +469,11 @@ fn build_condition(p: Pairs<Rule>) -> Result<Vec<Op>, HakuError> {
     for pair in p {
         match pair.as_rule() {
             Rule::andexpr => v.push(build_and_expr(pair.into_inner())?),
-            Rule::or_op => {}, // do nothing
+            Rule::or_op => {} // do nothing
             _ => {
                 println!("{:?}", pair);
                 unimplemented!();
-            },
+            }
         }
     }
     Ok(v)
@@ -481,11 +488,11 @@ fn build_expr(p: Pairs<Rule>) -> Result<Vec<Op>, HakuError> {
             Rule::cond => {
                 let mut cexpr = build_condition(pair.into_inner())?;
                 v.append(&mut cexpr);
-            },
+            }
             _ => {
                 println!("{:?}", pair);
                 unimplemented!();
-            },
+            }
         }
     }
     Ok(v)
@@ -499,8 +506,8 @@ pub fn build_assign(p: Pairs<Rule>) -> Result<Op, HakuError> {
             Rule::ident => name = pair.as_str().to_string(),
             Rule::assign_expr => {
                 return Ok(Op::Assign(name, build_expr(pair.into_inner())?));
-            },
-            _ => {}, // "="
+            }
+            _ => {} // "="
         }
     }
     unreachable!();
@@ -514,8 +521,8 @@ pub fn build_def_assign(p: Pairs<Rule>) -> Result<Op, HakuError> {
             Rule::ident => name = pair.as_str().to_string(),
             Rule::assign_expr => {
                 return Ok(Op::DefAssign(name, build_expr(pair.into_inner())?));
-            },
-            _ => {}, // "="
+            }
+            _ => {} // "="
         }
     }
     unreachable!();
@@ -531,8 +538,8 @@ pub fn build_either_assign(p: Pairs<Rule>) -> Result<Op, HakuError> {
             Rule::either_arg => {
                 let a = build_arg(pair.into_inner())?;
                 exprs.push(a);
-            },
-            _ => {}, // "=" && "?"
+            }
+            _ => {} // "=" && "?"
         }
     }
     Ok(Op::EitherAssign(false, name, exprs))
@@ -548,8 +555,8 @@ pub fn build_either_def_assign(p: Pairs<Rule>) -> Result<Op, HakuError> {
             Rule::either_arg => {
                 let a = build_arg(pair.into_inner())?;
                 exprs.push(a);
-            },
-            _ => {}, // "=" && "?"
+            }
+            _ => {} // "=" && "?"
         }
     }
     Ok(Op::EitherAssign(true, name, exprs))
@@ -561,8 +568,8 @@ pub fn build_if(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match pair.as_rule() {
             Rule::cond => {
                 return Ok(Op::If(build_condition(pair.into_inner())?));
-            },
-            _ => {}, // "if"
+            }
+            _ => {} // "if"
         }
     }
     unreachable!()
@@ -574,8 +581,8 @@ pub fn build_elseif(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match pair.as_rule() {
             Rule::cond => {
                 return Ok(Op::ElseIf(build_condition(pair.into_inner())?));
-            },
-            _ => {}, // "if"
+            }
+            _ => {} // "if"
         }
     }
     unreachable!()
@@ -587,8 +594,8 @@ pub fn build_while(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match pair.as_rule() {
             Rule::cond => {
                 return Ok(Op::While(build_condition(pair.into_inner())?));
-            },
-            _ => {}, // "if"
+            }
+            _ => {} // "if"
         }
     }
     unreachable!()

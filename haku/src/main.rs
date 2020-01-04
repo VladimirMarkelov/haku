@@ -1,8 +1,8 @@
 mod config;
-use std::path::{Path};
+use std::path::Path;
 
-use std::process::exit;
 use std::collections::HashSet;
+use std::process::exit;
 
 use config::{parse_args, Config};
 
@@ -48,7 +48,7 @@ fn display_recipes(eng: Engine, conf: &Config) {
         }
         sec_names.insert(s.name.clone());
         if s.system {
-            continue
+            continue;
         }
         print!("    {}", s.name);
         if !s.vars.is_empty() {
@@ -112,16 +112,10 @@ fn main() -> Result<(), HakuError> {
         exit(0);
     }
 
-    let filename = if conf.filename.is_empty() {
-        detect_taskfile()
-    } else {
-        conf.filename.clone()
-    };
+    let filename = if conf.filename.is_empty() { detect_taskfile() } else { conf.filename.clone() };
 
-    let opts = RunOpts::new()
-        .with_dry_run(conf.dry_run)
-        .with_features(conf.features.clone())
-        .with_verbosity(conf.verbose);
+    let opts =
+        RunOpts::new().with_dry_run(conf.dry_run).with_features(conf.features.clone()).with_verbosity(conf.verbose);
     let mut eng = Engine::new(opts);
     eng.set_free_args(&conf.args);
     if let Err(e) = eng.load_from_file(&filename) {
@@ -134,7 +128,7 @@ fn main() -> Result<(), HakuError> {
             Err(e) => {
                 eprintln!("{:?}", e);
                 exit(1);
-            },
+            }
             Ok(rcp) => {
                 if !rcp.filename.is_empty() {
                     println!("{}", rcp.filename);
@@ -147,7 +141,7 @@ fn main() -> Result<(), HakuError> {
                 for line in rcp.content {
                     println!("  {}", line);
                 }
-            },
+            }
         }
         exit(0);
     }
@@ -157,14 +151,13 @@ fn main() -> Result<(), HakuError> {
         exit(0);
     }
 
-
     let res = eng.run_recipe(&conf.recipe);
     match res {
         Err(e) => {
             eprintln!("{}", e);
             exit(1);
-        },
-        _ => {},
+        }
+        _ => {}
     };
     Ok(())
 }

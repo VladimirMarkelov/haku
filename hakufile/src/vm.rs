@@ -1,14 +1,14 @@
 use std::convert::From;
 use std::fmt;
-use std::process::Command;
 use std::iter::FromIterator;
+use std::process::Command;
 use std::usize;
 
-use crate::parse::{HakuFile,DisabledRecipe};
 use crate::errors::HakuError;
-use crate::ops::{Op, Seq, FLAG_PASS, FLAG_QUIET, is_flag_on};
-use crate::func::{run_func};
-use crate::var::{VarMgr,VarValue,ExecResult};
+use crate::func::run_func;
+use crate::ops::{is_flag_on, Op, Seq, FLAG_PASS, FLAG_QUIET};
+use crate::parse::{DisabledRecipe, HakuFile};
+use crate::var::{ExecResult, VarMgr, VarValue};
 
 /// Name of a recipe that is executed if no recipe is set by a caller
 const DEFAULT_RECIPE: &str = "_default";
@@ -40,16 +40,12 @@ pub struct RunOpts {
     /// verbosity level - affects amount of info print while executing a recipe
     verbosity: usize,
     /// `true` - do not run any shell commands (except ones in assignments and for's)
-    dry_run: bool
+    dry_run: bool,
 }
 
 impl RunOpts {
     pub fn new() -> Self {
-        RunOpts {
-            dry_run: false,
-            feats: Vec::new(),
-            verbosity: 0,
-        }
+        RunOpts { dry_run: false, feats: Vec::new(), verbosity: 0 }
     }
 
     pub fn with_dry_run(mut self, dry_run: bool) -> Self {
@@ -69,7 +65,7 @@ impl RunOpts {
 }
 
 /// Recipe detailed information
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct RecipeDesc {
     /// recipe's name
     pub name: String,
@@ -112,7 +108,7 @@ impl fmt::Display for RecipeDesc {
 }
 
 /// Description of a condition that is not finished yet
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 enum Condition {
     /// value of the last if/elseif condition. The value determines what to do when the engine
     /// meets `elseif` statement. If `true`, the `if` finishes (as if `end` was met).
@@ -137,7 +133,7 @@ enum Condition {
 }
 
 /// Describes a condition(loop) the engine is in
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 struct CondItem {
     /// the line number of the first line of the if/for/while
     line: usize,
@@ -170,7 +166,7 @@ pub struct Engine {
 }
 
 /// Describes a recipe location
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct RecipeLoc {
     // the number of file (in `engine.files` list)
     pub file: usize,
@@ -223,6 +219,22 @@ impl Engine {
         eng
     }
 
+    /// Generates detailed information about a place where the error happenned.
+    fn error_extra(&self, fidx: usize, lidx: usize) -> String {
+        let use_file = fidx != usize::MAX && fidx < self.files.len();
+        let use_line = lidx != usize::MAX && lidx < self.files[fidx].orig_lines.len();
+        let use_file = use_file && self.files.len() > 1;
+        if use_file && use_line {
+            format!(" in {} at line {}:\n    {}", self.included[fidx], lidx + 1, self.files[fidx].orig_lines[lidx])
+        } else if use_file {
+            format!(" in {} at line {}", self.included[fidx], lidx + 1)
+        } else if use_line {
+            format!(" at line {}:\n    {}", self.files[fidx].orig_lines[lidx], lidx + 1)
+        } else {
+            String::new()
+        }
+    }
+
     /// Loads and parse a script from a file (all `include` statements are processed at
     /// this step as well), and builds a list of available and disables recipes
     pub fn load_from_file(&mut self, filepath: &str) -> Result<(), HakuError> {
@@ -235,7 +247,7 @@ impl Engine {
         let hk = HakuFile::load_from_file(filepath, &self.opts)?;
         self.files.push(hk);
         self.included.push(filepath.to_string());
-        self.run_header(self.files.len()-1)?;
+        self.run_header(self.files.len() - 1)?;
         self.detect_recipes();
         Ok(())
     }
@@ -246,7 +258,7 @@ impl Engine {
         output!(self.opts.verbosity, 2, "Executing string: {}", src);
         let hk = HakuFile::load_from_str(src, &self.opts)?;
         self.files.push(hk);
-        self.run_header(self.files.len()-1)?;
+        self.run_header(self.files.len() - 1)?;
         self.detect_recipes();
         Ok(())
     }
@@ -260,16 +272,16 @@ impl Engine {
         for op in &self.files[idx].ops {
             self.real_line = op.line;
             match &op.op {
-                Op::Feature(_, _) => { /* Since dead code is removed, it can be skipped */ },
-                Op::Recipe(_,_,_,_) => break,
-                Op::Comment(_) | Op::DocComment(_) => { /* just continue */ },
+                Op::Feature(_, _) => { /* Since dead code is removed, it can be skipped */ }
+                Op::Recipe(_, _, _, _) => break,
+                Op::Comment(_) | Op::DocComment(_) => { /* just continue */ }
                 Op::Include(flags, path) => {
                     let inc_path = self.varmgr.interpolate(&path, true);
                     output!(self.opts.verbosity, 3, "        !!INCLUDE - {}", inc_path);
                     to_include.push(inc_path);
                     to_include_flags.push(*flags);
-                },
-                _ => { /*run = true */ },
+                }
+                _ => { /*run = true */ }
             }
         }
         output!(self.opts.verbosity, 3, "TO INCLUDE: {}", to_include.len());
@@ -290,9 +302,7 @@ impl Engine {
     /// Returns `true` if the name of a recipe is a system one. System recipes should not
     /// be displayed by a caller
     fn is_system_recipe(name: &str) -> bool {
-        name == "_default"
-            || name == "_before"
-            || name == "_after"
+        name == "_default" || name == "_before" || name == "_after"
     }
 
     /// Build a list of available and disabled recipes. If there are a few recipes have the
@@ -306,17 +316,13 @@ impl Engine {
             let mut desc = String::new();
             for (line_idx, op) in hk.ops.iter().enumerate() {
                 match op.op {
-                    Op::Feature(_, _) => {},
+                    Op::Feature(_, _) => {}
                     Op::DocComment(ref s) => desc = self.varmgr.interpolate(s, true),
                     Op::Recipe(ref nm, flags, ref vars, ref deps) => {
-                        let mut recipe = RecipeDesc{
+                        let mut recipe = RecipeDesc {
                             name: nm.clone(),
                             desc: desc.clone(),
-                            loc: RecipeLoc{
-                                line: line_idx,
-                                file: file_idx,
-                                script_line: op.line,
-                            },
+                            loc: RecipeLoc { line: line_idx, file: file_idx, script_line: op.line },
                             depends: Vec::new(),
                             system: Engine::is_system_recipe(&nm),
                             vars: vars.clone(),
@@ -330,9 +336,11 @@ impl Engine {
 
                         self.recipes.push(recipe);
                         desc.clear();
-                    },
-                    Op::Comment(_) => { /* do not change anything */ },
-                    _ => { desc.clear(); },
+                    }
+                    Op::Comment(_) => { /* do not change anything */ }
+                    _ => {
+                        desc.clear();
+                    }
                 }
             }
         }
@@ -350,7 +358,7 @@ impl Engine {
 
     /// Returns info about all loaded available recipes
     pub fn recipes(&self) -> &[RecipeDesc] {
-        return &self.recipes
+        return &self.recipes;
     }
 
     /// Returns info about all loaded disabled recipes
@@ -370,7 +378,7 @@ impl Engine {
         let mut min = usize::MAX;
         for r in self.recipes.iter() {
             if r.loc.file != file || r.loc.script_line <= line {
-                continue
+                continue;
             }
             if min > r.loc.script_line {
                 min = r.loc.script_line;
@@ -396,9 +404,10 @@ impl Engine {
             let mut content = Vec::new();
 
             // ignore all doc comments and feature lists related to the next section
-            while eidx > sidx && (
-                self.files[fidx].orig_lines[eidx-1].trim_start().starts_with("#[")
-                || self.files[fidx].orig_lines[eidx-1].trim_start().starts_with("##")) {
+            while eidx > sidx
+                && (self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("#[")
+                    || self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("##"))
+            {
                 eidx -= 1;
             }
 
@@ -406,7 +415,7 @@ impl Engine {
                 content.push(self.files[fidx].orig_lines[lidx].clone());
             }
 
-            return Ok(RecipeContent{
+            return Ok(RecipeContent {
                 filename: self.file_name(fidx).unwrap_or("").to_string(),
                 content,
                 enabled: true,
@@ -430,7 +439,7 @@ impl Engine {
                     content.push(f.orig_lines[lidx].clone());
                 }
 
-                return Ok(RecipeContent{
+                return Ok(RecipeContent {
                     filename: self.file_name(fidx).unwrap_or("").to_string(),
                     content,
                     enabled: false,
@@ -508,12 +517,12 @@ impl Engine {
         let lowname = name.to_lowercase();
         match lowname.as_str() {
             "shell" => {
-                let v: Vec<String> = ops.iter()
-                    .map(|a|
-                        match self.exec_op(a) {
-                            Err(_) => String::new(),
-                            Ok(res) => res.to_string(),
-                        })
+                let v: Vec<String> = ops
+                    .iter()
+                    .map(|a| match self.exec_op(a) {
+                        Err(_) => String::new(),
+                        Ok(res) => res.to_string(),
+                    })
                     .filter(|a| !a.is_empty())
                     .collect();
                 if v.is_empty() {
@@ -522,7 +531,7 @@ impl Engine {
                 output!(self.opts.verbosity, 1, "Setting new shell: {:?}", v);
                 self.shell = v;
                 Ok(true)
-            },
+            }
             _ => Ok(false),
         }
     }
@@ -536,47 +545,80 @@ impl Engine {
             self.real_line = op.line;
             match op.op {
                 Op::Recipe(_, _, _, _) | Op::Return => return Ok(()),
-                Op::Include(_, _) => { i += 1; },
+                Op::Include(_, _) => {
+                    i += 1;
+                }
                 Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
-                Op::DocComment(_) | Op::Comment(_) => { i += 1; },
-                Op::Shell(flags, cmd) => { self.exec_cmd_shell(flags, &cmd, i)?; i += 1; },
-                Op::EitherAssign(chk, name, ops) => { self.exec_either_assign(chk, &name, &ops)?; i += 1; },
-                Op::DefAssign(name, ops) => { self.exec_assign_or(&name, &ops)?; i += 1; },
-                Op::Assign(name, ops) => { self.exec_assign(&name, &ops)?; i += 1; },
+                Op::DocComment(_) | Op::Comment(_) => {
+                    i += 1;
+                }
+                Op::Shell(flags, cmd) => {
+                    self.exec_cmd_shell(flags, &cmd, i)?;
+                    i += 1;
+                }
+                Op::EitherAssign(chk, name, ops) => {
+                    self.exec_either_assign(chk, &name, &ops)?;
+                    i += 1;
+                }
+                Op::DefAssign(name, ops) => {
+                    self.exec_assign_or(&name, &ops)?;
+                    i += 1;
+                }
+                Op::Assign(name, ops) => {
+                    self.exec_assign(&name, &ops)?;
+                    i += 1;
+                }
                 Op::Func(name, ops) => {
                     let is_processed = self.system_call(&name, &ops, i)?;
                     if !is_processed {
                         self.exec_func(&name, &ops)?;
                     }
                     i += 1;
-                }, // top level - func value is dropped
-                Op::StmtClose => { let next = self.exec_end()?; if next == 0 {i += 1;} else { i = next; }},
+                } // top level - func value is dropped
+                Op::StmtClose => {
+                    let next = self.exec_end()?;
+                    if next == 0 {
+                        i += 1;
+                    } else {
+                        i = next;
+                    }
+                }
                 Op::For(name, seq) => {
                     let ok = self.exec_for(&name, seq, i)?;
                     if ok {
                         i += 1;
                     } else {
-                        i = self.find_end(file, i+1, "for")?;
+                        i = self.find_end(file, i + 1, "for")?;
                     }
-                },
+                }
                 Op::While(ops) => {
                     // must have exact 1 op
                     let ok = self.exec_while(&ops, i)?;
                     if ok {
                         i += 1;
                     } else {
-                        i = self.find_end(file, i+1, "while")?;
+                        i = self.find_end(file, i + 1, "while")?;
                     }
-                },
-                Op::Break => { i = self.exec_break(file)?; },
-                Op::Continue => { i = self.exec_continue(file)?; },
-                Op::If(ops) => { i = self.exec_if(&ops, file, i)?; },
-                Op::Else => { i = self.exec_else(file, i)?; },
-                Op::ElseIf(ops) => { i = self.exec_elseif(&ops, file, i)?; }, // must have exact 1 op
+                }
+                Op::Break => {
+                    i = self.exec_break(file)?;
+                }
+                Op::Continue => {
+                    i = self.exec_continue(file)?;
+                }
+                Op::If(ops) => {
+                    i = self.exec_if(&ops, file, i)?;
+                }
+                Op::Else => {
+                    i = self.exec_else(file, i)?;
+                }
+                Op::ElseIf(ops) => {
+                    i = self.exec_elseif(&ops, file, i)?;
+                } // must have exact 1 op
                 _ => {
                     eprintln!("UNIMPLEMENTED: {:?}", op);
                     i += 1;
-                },
+                }
             }
         }
         Ok(())
@@ -586,7 +628,7 @@ impl Engine {
     /// The order of script execution is a reversed order of script loading. That makes it
     /// possible to override e.g. variable values in the user script.
     fn exec_init(&mut self) -> Result<(), HakuError> {
-        let cnt  = self.files.len();
+        let cnt = self.files.len();
         for i in 0..cnt {
             self.exec_file_init(cnt - i - 1)?;
         }
@@ -595,11 +637,16 @@ impl Engine {
 
     /// Adds a recipe to the list of recipes to execute before running a given one.
     /// Used only internally.
-    fn push_recipe(&mut self, loc: RecipeLoc, found: Option<&[RecipeItem]>, parent: Option<&[String]>) -> Result<Vec<RecipeItem>, HakuError> {
+    fn push_recipe(
+        &mut self,
+        loc: RecipeLoc,
+        found: Option<&[RecipeItem]>,
+        parent: Option<&[String]>,
+    ) -> Result<Vec<RecipeItem>, HakuError> {
         let op = self.files[loc.file].ops[loc.line].clone();
-        let mut sec_item: RecipeItem = RecipeItem{
+        let mut sec_item: RecipeItem = RecipeItem {
             name: String::new(),
-            loc: RecipeLoc{file: 0, line: 0, script_line: 0,},
+            loc: RecipeLoc { file: 0, line: 0, script_line: 0 },
             vars: Vec::new(),
             flags: 0,
         };
@@ -611,8 +658,7 @@ impl Engine {
         };
         match op.op {
             Op::Recipe(name, flags, vars, deps) => {
-                if vc.iter().any(|s| s.name == name)
-                    || deps.iter().any(|d| d == &name) {
+                if vc.iter().any(|s| s.name == name) || deps.iter().any(|d| d == &name) {
                     return Err(HakuError::RecipeRecursionError(name, HakuError::err_line(op.line)));
                 }
                 for dep in deps {
@@ -635,7 +681,7 @@ impl Engine {
                 sec_item.loc = loc;
                 sec_item.vars = vars;
                 sec_item.flags = flags;
-            },
+            }
             _ => unreachable!(),
         }
         vc.push(sec_item);
@@ -653,7 +699,7 @@ impl Engine {
             let op = &sec[idx];
             output!(self.opts.verbosity, 1, "Starting recipe: {}", op.name);
             self.enter_recipe(op);
-            self.exec_from(op.loc.file, op.loc.line+1, op.flags)?;
+            self.exec_from(op.loc.file, op.loc.line + 1, op.flags)?;
             self.leave_recipe();
             idx += 1;
         }
@@ -669,47 +715,76 @@ impl Engine {
             let op = (self.files[file].ops[idx]).clone();
             self.real_line = op.line;
             match op.op {
-                Op::Return | Op::Recipe(_,_,_,_) => return Ok(()),
-                Op::Include(_,_) => return Err(HakuError::IncludeInRecipeError(HakuError::err_line(self.real_line))),
+                Op::Return | Op::Recipe(_, _, _, _) => return Ok(()),
+                Op::Include(_, _) => return Err(HakuError::IncludeInRecipeError(HakuError::err_line(self.real_line))),
                 Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
                 Op::Shell(flags, cmd) => {
                     let cmd_flags = sec_flags ^ flags;
-                    self.exec_cmd_shell(cmd_flags, &cmd, idx)?; idx += 1;
-                },
-                Op::EitherAssign(chk, name, ops) => { self.exec_either_assign(chk, &name, &ops)?; idx += 1; },
-                Op::DefAssign(name, ops) => { self.exec_assign_or(&name, &ops)?; idx += 1; },
-                Op::Assign(name, ops) => { self.exec_assign(&name, &ops)?; idx += 1; },
+                    self.exec_cmd_shell(cmd_flags, &cmd, idx)?;
+                    idx += 1;
+                }
+                Op::EitherAssign(chk, name, ops) => {
+                    self.exec_either_assign(chk, &name, &ops)?;
+                    idx += 1;
+                }
+                Op::DefAssign(name, ops) => {
+                    self.exec_assign_or(&name, &ops)?;
+                    idx += 1;
+                }
+                Op::Assign(name, ops) => {
+                    self.exec_assign(&name, &ops)?;
+                    idx += 1;
+                }
                 Op::Func(name, ops) => {
                     let is_processed = self.system_call(&name, &ops, idx)?;
                     if !is_processed {
                         self.exec_func(&name, &ops)?;
                     }
                     idx += 1;
-                }, // top level - func value is dropped
-                Op::StmtClose => { let next = self.exec_end()?; if next == 0 { idx += 1} else { idx = next; }},
+                } // top level - func value is dropped
+                Op::StmtClose => {
+                    let next = self.exec_end()?;
+                    if next == 0 {
+                        idx += 1
+                    } else {
+                        idx = next;
+                    }
+                }
                 Op::For(name, seq) => {
                     let ok = self.exec_for(&name, seq, idx)?;
                     if ok {
                         idx += 1;
                     } else {
-                        idx = self.find_end(file, idx+1, "for")?;
+                        idx = self.find_end(file, idx + 1, "for")?;
                     }
-                },
+                }
                 Op::While(ops) => {
                     // must have exact 1 op
                     let ok = self.exec_while(&ops, idx)?;
                     if ok {
                         idx += 1;
                     } else {
-                        idx = self.find_end(file, idx+1, "while")?;
+                        idx = self.find_end(file, idx + 1, "while")?;
                     }
-                },
-                Op::Break => { idx = self.exec_break(file)?; },
-                Op::Continue => { idx = self.exec_continue(file)?; },
-                Op::If(ops) => { idx = self.exec_if(&ops, file, idx)?; }, // must have exact 1 op
-                Op::Else => { idx = self.exec_else(file, idx)?; },
-                Op::ElseIf(ops) => { idx = self.exec_elseif(&ops, file, idx)?; }, // must have exact 1 op
-                _ => { idx += 1;/* just skip */ },
+                }
+                Op::Break => {
+                    idx = self.exec_break(file)?;
+                }
+                Op::Continue => {
+                    idx = self.exec_continue(file)?;
+                }
+                Op::If(ops) => {
+                    idx = self.exec_if(&ops, file, idx)?;
+                } // must have exact 1 op
+                Op::Else => {
+                    idx = self.exec_else(file, idx)?;
+                }
+                Op::ElseIf(ops) => {
+                    idx = self.exec_elseif(&ops, file, idx)?;
+                } // must have exact 1 op
+                _ => {
+                    idx += 1; /* just skip */
+                }
             }
         }
         Ok(())
@@ -728,11 +803,11 @@ impl Engine {
                 Op::StmtClose => {
                     nesting -= 1;
                     if nesting == 0 {
-                        return Ok(idx+1);
+                        return Ok(idx + 1);
                     }
-                },
-                Op::If(_) | Op::While(_) | Op::For(_,_) => nesting += 1,
-                _ => {},
+                }
+                Op::If(_) | Op::While(_) | Op::For(_, _) => nesting += 1,
+                _ => {}
             }
             idx += 1;
         }
@@ -751,16 +826,16 @@ impl Engine {
                 Op::StmtClose => {
                     nesting -= 1;
                     if nesting == 0 {
-                        return Ok((true, idx+1));
+                        return Ok((true, idx + 1));
                     }
-                },
-                Op::If(_) | Op::While(_) | Op::For(_,_) => nesting += 1,
+                }
+                Op::If(_) | Op::While(_) | Op::For(_, _) => nesting += 1,
                 Op::ElseIf(_) | Op::Else => {
                     if nesting == 1 {
                         return Ok((false, idx));
                     }
-                },
-                _ => {},
+                }
+                _ => {}
             }
             idx += 1;
         }
@@ -775,10 +850,7 @@ impl Engine {
     /// Internal function to use by `for` or assignment statement.
     fn exec_cmd(&mut self, cmdline: &str) -> Result<ExecResult, HakuError> {
         let cmdline = self.varmgr.interpolate(&cmdline, true);
-        let mut eres = ExecResult {
-            code: 0,
-            stdout: String::new(),
-        };
+        let mut eres = ExecResult { code: 0, stdout: String::new() };
         let mut cmd = Command::new(&self.shell[0]);
         for arg in self.shell[1..].iter() {
             cmd.arg(arg);
@@ -786,14 +858,20 @@ impl Engine {
         cmd.arg(&cmdline);
         let out = match cmd.output() {
             Ok(o) => o,
-            Err(e) => return Err(HakuError::ExecFailureError(cmdline, e.to_string(), HakuError::err_line(self.real_line))),
+            Err(e) => {
+                return Err(HakuError::ExecFailureError(cmdline, e.to_string(), HakuError::err_line(self.real_line)))
+            }
         };
 
         if !out.status.success() {
             if let Ok(s) = String::from_utf8(out.stderr) {
                 eprint!("{}", s);
             }
-            return Err(HakuError::ExecFailureError(cmdline.to_string(), format!("exit code {}", out.status.code().unwrap_or(0)), HakuError::err_line(self.real_line)));
+            return Err(HakuError::ExecFailureError(
+                cmdline.to_string(),
+                format!("exit code {}", out.status.code().unwrap_or(0)),
+                HakuError::err_line(self.real_line),
+            ));
         }
 
         if let Ok(s) = String::from_utf8(out.stdout) {
@@ -828,11 +906,8 @@ impl Engine {
                 if is_flag_on(flags, FLAG_PASS) {
                     return Ok(());
                 }
-                return Err(HakuError::ExecFailureError(
-                    cmdline,
-                    e.to_string(),
-                    HakuError::err_line(line)));
-            },
+                return Err(HakuError::ExecFailureError(cmdline, e.to_string(), HakuError::err_line(line)));
+            }
         };
 
         if !st.success() && !is_flag_on(flags, FLAG_PASS) {
@@ -840,11 +915,7 @@ impl Engine {
                 None => "(unknown exit code)".to_string(),
                 Some(c) => format!("(exit code: {}", c),
             };
-            return Err( HakuError::ExecFailureError(
-                    cmdline.to_string(),
-                    code,
-                    HakuError::err_line(line),
-            ));
+            return Err(HakuError::ExecFailureError(cmdline.to_string(), code, HakuError::err_line(line)));
         }
 
         Ok(())
@@ -957,13 +1028,13 @@ impl Engine {
         let v = self.exec_op(&ops[0])?;
         if v.is_true() {
             output!(self.opts.verbosity, 3, "   if == true");
-            self.cond_stack.push(CondItem{line: idx, cond: Condition::If(true)});
-            Ok(idx+1)
+            self.cond_stack.push(CondItem { line: idx, cond: Condition::If(true) });
+            Ok(idx + 1)
         } else {
             output!(self.opts.verbosity, 3, "   if == false -> look for else/end");
-            let (is_end, else_idx) = self.find_else(file, idx+1, "if")?;
+            let (is_end, else_idx) = self.find_else(file, idx + 1, "if")?;
             if !is_end {
-                self.cond_stack.push(CondItem{line: idx, cond: Condition::If(false)});
+                self.cond_stack.push(CondItem { line: idx, cond: Condition::If(false) });
             }
             Ok(else_idx)
         }
@@ -980,11 +1051,11 @@ impl Engine {
         match op.cond {
             Condition::If(c) => {
                 if c {
-                    Ok(idx+1)
+                    Ok(idx + 1)
                 } else {
-                    Ok(self.find_end(file, idx+1, "else")?)
+                    Ok(self.find_end(file, idx + 1, "else")?)
                 }
-            },
+            }
             _ => Err(HakuError::StrayElseError(HakuError::err_line(self.real_line))),
         }
     }
@@ -1004,7 +1075,7 @@ impl Engine {
         match op.cond {
             Condition::If(c) => {
                 if !c {
-                    return Ok(self.find_end(file, idx+1, "else")?);
+                    return Ok(self.find_end(file, idx + 1, "else")?);
                 }
                 let v = self.exec_op(&ops[0])?;
                 if v.is_true() {
@@ -1016,10 +1087,10 @@ impl Engine {
                     self.cond_stack.push(cnd);
                     Ok(idx + 1)
                 } else {
-                    let (_, else_idx) = self.find_else(file, idx+1, "elseif")?;
+                    let (_, else_idx) = self.find_else(file, idx + 1, "elseif")?;
                     Ok(else_idx)
                 }
-            },
+            }
             _ => Err(HakuError::StrayElseIfError(HakuError::err_line(self.real_line))),
         }
     }
@@ -1032,7 +1103,7 @@ impl Engine {
         let v = self.exec_op(&ops[0])?;
         if v.is_true() {
             let lst: Vec<Op> = ops.iter().cloned().collect();
-            self.cond_stack.push(CondItem{line: idx, cond: Condition::While(lst)});
+            self.cond_stack.push(CondItem { line: idx, cond: Condition::While(lst) });
         }
         Ok(v.is_true())
     }
@@ -1057,7 +1128,7 @@ impl Engine {
                     } else {
                         return Ok(0);
                     }
-                },
+                }
                 Condition::ForList(var, mut vals) => {
                     output!(self.opts.verbosity, 3, "END FOR LIST: {} = {:?}", var, vals);
                     if vals.is_empty() {
@@ -1066,9 +1137,9 @@ impl Engine {
                     let val = vals[0].clone();
                     vals.remove(0);
                     self.varmgr.set_var(&var, VarValue::Str(val));
-                    self.cond_stack.push(CondItem{line: op.line, cond: Condition::ForList(var, vals)});
-                    return Ok(op.line+1);
-                },
+                    self.cond_stack.push(CondItem { line: op.line, cond: Condition::ForList(var, vals) });
+                    return Ok(op.line + 1);
+                }
                 Condition::ForInt(var, mut curr, end, step) => {
                     curr += step;
                     output!(self.opts.verbosity, 3, "END FOR INT: {} of {}", curr, end);
@@ -1076,9 +1147,9 @@ impl Engine {
                         return Ok(0);
                     }
                     self.varmgr.set_var(&var, VarValue::Int(curr));
-                    self.cond_stack.push(CondItem{line: op.line, cond: Condition::ForInt(var, curr, end, step)});
-                    return Ok(op.line+1);
-                },
+                    self.cond_stack.push(CondItem { line: op.line, cond: Condition::ForInt(var, curr, end, step) });
+                    return Ok(op.line + 1);
+                }
             }
         } else {
             return Err(HakuError::StrayEndError(HakuError::err_line(self.real_line)));
@@ -1091,7 +1162,9 @@ impl Engine {
         while let Some(cnd) = self.cond_stack.pop() {
             match cnd.cond {
                 Condition::If(_) => continue,
-                _ => { return Ok(self.find_end(file, cnd.line+1, "break")?); },
+                _ => {
+                    return Ok(self.find_end(file, cnd.line + 1, "break")?);
+                }
             }
         }
         Err(HakuError::NoMatchingForWhileError(HakuError::err_line(self.real_line)))
@@ -1105,17 +1178,17 @@ impl Engine {
             match cnd.cond {
                 Condition::If(_) => continue,
                 _ => {
-                    next = self.find_end(file, cnd.line+1, "continue")?;
+                    next = self.find_end(file, cnd.line + 1, "continue")?;
                     self.cond_stack.push(cnd.clone());
                     break;
-                },
+                }
             }
         }
         if next == usize::MAX {
             Err(HakuError::NoMatchingForWhileError(HakuError::err_line(self.real_line)))
         } else {
             // step back to point to END statement
-            Ok(next-1)
+            Ok(next - 1)
         }
     }
 
@@ -1135,9 +1208,10 @@ impl Engine {
                     return Err(HakuError::ForeverForError(HakuError::err_line(idx)));
                 }
                 self.varmgr.set_var(name, VarValue::Int(start));
-                self.cond_stack.push(CondItem{line: idx, cond: Condition::ForInt(name.to_string(), start, end, step),});
+                self.cond_stack
+                    .push(CondItem { line: idx, cond: Condition::ForInt(name.to_string(), start, end, step) });
                 return Ok(true);
-            },
+            }
             Seq::Str(s) => {
                 let s = self.varmgr.interpolate(&s, false);
                 let mut v: Vec<String> = if s.find('\n').is_some() {
@@ -1151,9 +1225,9 @@ impl Engine {
                 }
                 self.varmgr.set_var(name, VarValue::Str(v[0].clone()));
                 v.remove(0);
-                self.cond_stack.push(CondItem{line: idx, cond: Condition::ForList(name.to_string(), v)});
+                self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
                 return Ok(true);
-            },
+            }
             Seq::Idents(ids) => {
                 output!(self.opts.verbosity, 3, "  FOR idents: {:?}", ids);
                 if ids.is_empty() {
@@ -1161,29 +1235,27 @@ impl Engine {
                 }
                 self.varmgr.set_var(name, VarValue::Str(ids[0].clone()));
                 let v: Vec<String> = ids.iter().skip(1).map(|s| s.to_string()).collect();
-                self.cond_stack.push(CondItem{line: idx, cond: Condition::ForList(name.to_string(), v)});
+                self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
                 return Ok(true);
-            },
-            Seq::Exec(s) => {
-                match self.exec_cmd(&s) {
-                    Ok(res) => {
-                        if res.code == 0 {
-                            let mut v: Vec<String> = res.stdout.lines().map(|s| s.trim_end().to_string()).collect();
-                            output!(self.opts.verbosity, 3, "   FOR lines: {:?}", v);
-                            if v.is_empty() {
-                                return Ok(false);
-                            }
-                            self.varmgr.set_var(name, VarValue::Str(v[0].clone()));
-                            v.remove(0);
-                            self.cond_stack.push(CondItem{line: idx, cond: Condition::ForList(name.to_string(), v)});
-                            return Ok(true);
-                        } else {
-                            output!(self.opts.verbosity, 3, "   FOR lines: FAILURE");
-                        };
-                    },
-                    Err(_) => {
-                            output!(self.opts.verbosity, 3, "   FOR lines: FAILURE[2]");
-                    },
+            }
+            Seq::Exec(s) => match self.exec_cmd(&s) {
+                Ok(res) => {
+                    if res.code == 0 {
+                        let mut v: Vec<String> = res.stdout.lines().map(|s| s.trim_end().to_string()).collect();
+                        output!(self.opts.verbosity, 3, "   FOR lines: {:?}", v);
+                        if v.is_empty() {
+                            return Ok(false);
+                        }
+                        self.varmgr.set_var(name, VarValue::Str(v[0].clone()));
+                        v.remove(0);
+                        self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
+                        return Ok(true);
+                    } else {
+                        output!(self.opts.verbosity, 3, "   FOR lines: FAILURE");
+                    };
+                }
+                Err(_) => {
+                    output!(self.opts.verbosity, 3, "   FOR lines: FAILURE[2]");
                 }
             },
         }
@@ -1210,7 +1282,7 @@ impl Engine {
             Op::Str(s) => {
                 let s = self.varmgr.interpolate(&s, false);
                 Ok(VarValue::Str(s))
-            },
+            }
             Op::Var(name) => Ok(self.varmgr.var(name)),
             Op::Exec(s) => match self.exec_cmd(s) {
                 Err(_) => Ok(VarValue::Undefined),
@@ -1227,7 +1299,7 @@ impl Engine {
                     }
                 }
                 unreachable!()
-            },
+            }
             Op::AndExpr(ops) => self.exec_and_expr(ops),
             Op::Func(name, ops) => self.exec_func(name, ops),
             Op::Compare(cmp_op, ops) => self.exec_compare(cmp_op, ops),
@@ -1251,13 +1323,13 @@ impl Engine {
                 let mut out = Vec::new();
                 while idx < self.varmgr.free.len() {
                     out.push(self.varmgr.free[idx].clone());
-                    idx+=1;
+                    idx += 1;
                 }
                 self.varmgr.set_recipe_var(nm, VarValue::List(out));
                 return;
             } else {
                 self.varmgr.set_recipe_var(v, VarValue::Str(self.varmgr.free[idx].clone()));
-                idx+=1;
+                idx += 1;
                 if idx >= self.varmgr.free.len() {
                     return;
                 }
@@ -1295,34 +1367,35 @@ mod vm_test {
         assert_eq!(vm.files[0].disabled.len(), 0);
         assert_eq!(
             mem::discriminant(&vm.files[0].ops[0].op),
-            mem::discriminant(&Op::Recipe(String::new(), 0, Vec::new(), Vec::new())));
+            mem::discriminant(&Op::Recipe(String::new(), 0, Vec::new(), Vec::new()))
+        );
     }
 
     #[test]
     fn ops() {
-        let parses: Vec<Prs> =vec![
-            Prs{ expr: "run('cmd')", tp: Op::Func(String::new(), Vec::new())},
-            Prs{ expr: "run('cmd', `abs`, inner(10,2,3))", tp: Op::Func(String::new(), Vec::new())},
-            Prs{ expr: "END", tp: Op::StmtClose},
-            Prs{ expr: "Return", tp: Op::Return},
-            Prs{ expr: "ELse", tp: Op::Else},
-            Prs{ expr: "brEAk", tp: Op::Break},
-            Prs{ expr: "continuE", tp: Op::Continue},
-            Prs{ expr: "a = `ls` || `dir` && 12 == r#zcv#", tp: Op::Assign(String::new(), Vec::new())},
-            Prs{ expr: "a = `ls` || !`dir` && 12 || $ui != 'zcv'", tp: Op::Assign(String::new(), Vec::new())},
-            Prs{ expr: "a ?= `ls` || `dir` || r#default#", tp: Op::DefAssign(String::new(), Vec::new())},
-            Prs{ expr: "a = `ls` ? `dir` ? 'default'", tp: Op::EitherAssign(false, String::new(), Vec::new())},
-            Prs{ expr: "a ?= `ls` ? `dir` ? 'default'", tp: Op::EitherAssign(false, String::new(), Vec::new())},
-            Prs{ expr: "if $a > `dir | wc -l` || $b == 'test${zef}':", tp: Op::If(Vec::new())},
-            Prs{ expr: "if $a > `dir | wc -l` || $b == 'test${zef}' ; do", tp: Op::If(Vec::new())},
-            Prs{ expr: "if $a > `dir | wc -l` || $b == 'test${zef}' then", tp: Op::If(Vec::new())},
-            Prs{ expr: "while `ping ${ip}`:", tp: Op::While(Vec::new())},
-            Prs{ expr: "while `ping ${ip}` && $b == 90 do", tp: Op::While(Vec::new())},
-            Prs{ expr: "for a in 1..2:", tp: Op::For(String::new(), Seq::Int(0,0,0))},
-            Prs{ expr: "for a in 1..2..8 do", tp: Op::For(String::new(), Seq::Int(0,0,0))},
-            Prs{ expr: "for a in 'a b c d' then", tp: Op::For(String::new(), Seq::Int(0,0,0))},
-            Prs{ expr: "for a in a b c d :", tp: Op::For(String::new(), Seq::Int(0,0,0))},
-            Prs{ expr: "for a in `dir *.*`", tp: Op::For(String::new(), Seq::Int(0,0,0))},
+        let parses: Vec<Prs> = vec![
+            Prs { expr: "run('cmd')", tp: Op::Func(String::new(), Vec::new()) },
+            Prs { expr: "run('cmd', `abs`, inner(10,2,3))", tp: Op::Func(String::new(), Vec::new()) },
+            Prs { expr: "END", tp: Op::StmtClose },
+            Prs { expr: "Return", tp: Op::Return },
+            Prs { expr: "ELse", tp: Op::Else },
+            Prs { expr: "brEAk", tp: Op::Break },
+            Prs { expr: "continuE", tp: Op::Continue },
+            Prs { expr: "a = `ls` || `dir` && 12 == r#zcv#", tp: Op::Assign(String::new(), Vec::new()) },
+            Prs { expr: "a = `ls` || !`dir` && 12 || $ui != 'zcv'", tp: Op::Assign(String::new(), Vec::new()) },
+            Prs { expr: "a ?= `ls` || `dir` || r#default#", tp: Op::DefAssign(String::new(), Vec::new()) },
+            Prs { expr: "a = `ls` ? `dir` ? 'default'", tp: Op::EitherAssign(false, String::new(), Vec::new()) },
+            Prs { expr: "a ?= `ls` ? `dir` ? 'default'", tp: Op::EitherAssign(false, String::new(), Vec::new()) },
+            Prs { expr: "if $a > `dir | wc -l` || $b == 'test${zef}':", tp: Op::If(Vec::new()) },
+            Prs { expr: "if $a > `dir | wc -l` || $b == 'test${zef}' ; do", tp: Op::If(Vec::new()) },
+            Prs { expr: "if $a > `dir | wc -l` || $b == 'test${zef}' then", tp: Op::If(Vec::new()) },
+            Prs { expr: "while `ping ${ip}`:", tp: Op::While(Vec::new()) },
+            Prs { expr: "while `ping ${ip}` && $b == 90 do", tp: Op::While(Vec::new()) },
+            Prs { expr: "for a in 1..2:", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
+            Prs { expr: "for a in 1..2..8 do", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
+            Prs { expr: "for a in 'a b c d' then", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
+            Prs { expr: "for a in a b c d :", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
+            Prs { expr: "for a in `dir *.*`", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
         ];
         for p in parses {
             let opts = RunOpts::new();
