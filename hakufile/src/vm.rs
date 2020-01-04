@@ -699,6 +699,8 @@ impl Engine {
     /// it runs the body of the given recipe.
     fn exec_recipe(&mut self, loc: RecipeLoc) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 2, "Start recipe [{}:{}]", loc.file, loc.line);
+        self.real_line = loc.script_line;
+        self.file_idx = loc.file;
         let sec = self.push_recipe(loc, None, None)?;
         output!(self.opts.verbosity, 2, "recipe call stack: {:?}", sec);
         let mut idx = 0;

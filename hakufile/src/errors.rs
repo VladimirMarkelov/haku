@@ -13,15 +13,15 @@ pub enum HakuError {
     FileReadFailure(String),
     #[error("File '{0}' does not exists")]
     FileNotLoaded(usize),
-    #[error("Fail to parse {0}{1}")]
+    #[error("Fail to parse '{0}'{1}")]
     ParseError(String, String),
     #[error("FOR: sequence '{0}' must be integer: {1}")]
     SeqIntError(&'static str, String),
     #[error("FOR: invalid sequence from {0} to {1} step {2}")]
     SeqError(i64, i64, i64),
-    #[error("Include recursion detected: {0}")]
+    #[error("Include recursion detected: '{0}'")]
     IncludeRecursionError(String),
-    #[error("Recipe recursive call detected: {0}{1}")]
+    #[error("Recipe recursive call detected: '{0}'{1}")]
     RecipeRecursionError(String, String),
     #[error("Recipe '{0}' not found")]
     RecipeNotFoundError(String),
