@@ -230,19 +230,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "haku"
-version = "0.1.0"
-dependencies = [
- "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
- "hakufile 0.1.0",
-]
-
-[[package]]
 name = "hakufile"
-version = "0.1.0"
+version = "0.2.3"
 dependencies = [
  "chrono 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest 2.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "pest_derive 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
