@@ -1,6 +1,6 @@
 [package]
 name = "hakufile"
-version = "0.2.3"
+version = "0.3.1"
 authors = ["Vladimir Markelov <vmatroskin@gmail.com>"]
 edition = "2018"
 
