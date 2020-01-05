@@ -111,6 +111,8 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "field" | "fields" => fields(args),
         "field-sep" | "fields-sep" | "field_sep" | "fields_sep" => fields_with_sep(args),
         "rand-str" | "rand_str" => rand_string(args),
+        "inc" => increment(args),
+        "dec" => decrement(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -580,6 +582,44 @@ fn rand_string(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::from(s))
 }
 
+/// Returns incremented value. If only one argument is provided, it is incremented it by one.
+/// Otherwise it returns sum of all arguments.
+/// NOTE: all values are converted into integers.
+fn increment(args: &[VarValue]) -> FuncResult {
+    if args.is_empty() {
+        return Ok(VarValue::Int(0));
+    }
+
+    let mut val = args[0].to_int();
+    if args.len() == 1 {
+        return Ok(VarValue::Int(val + 1));
+    }
+    for a in args[1..].iter() {
+        let inc = a.to_int();
+        val += inc;
+    }
+    Ok(VarValue::Int(val))
+}
+
+/// Returns decremented value. If only one argument is provided, it is decrements it by one.
+/// Otherwise it subtracts all values(except the first one) from the first one.
+/// NOTE: all values are converted into integers.
+fn decrement(args: &[VarValue]) -> FuncResult {
+    if args.is_empty() {
+        return Ok(VarValue::Int(0));
+    }
+
+    let mut val = args[0].to_int();
+    if args.len() == 1 {
+        return Ok(VarValue::Int(val - 1));
+    }
+    for a in args[1..].iter() {
+        let inc = a.to_int();
+        val -= inc;
+    }
+    Ok(VarValue::Int(val))
+}
+
 #[cfg(test)]
 mod path_test {
     use super::*;
@@ -851,5 +891,31 @@ mod path_test {
         for chr in s1.unwrap().to_string().chars() {
             assert!(chr >= '0' && chr <= '9');
         }
+    }
+
+    #[test]
+    fn inc() {
+        let v: Vec<VarValue> = Vec::new();
+        let r = increment(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let v = vec![VarValue::from(10)];
+        let r = increment(&v);
+        assert_eq!(r, Ok(VarValue::Int(11)));
+        let v = vec![VarValue::from(10), VarValue::from(-3), VarValue::from(77)];
+        let r = increment(&v);
+        assert_eq!(r, Ok(VarValue::Int(84)));
+    }
+
+    #[test]
+    fn dec() {
+        let v: Vec<VarValue> = Vec::new();
+        let r = decrement(&v);
+        assert_eq!(r, Ok(VarValue::Int(0)));
+        let v = vec![VarValue::from(10)];
+        let r = decrement(&v);
+        assert_eq!(r, Ok(VarValue::Int(9)));
+        let v = vec![VarValue::from(10), VarValue::from(-3), VarValue::from(77)];
+        let r = decrement(&v);
+        assert_eq!(r, Ok(VarValue::Int(-64)));
     }
 }
