@@ -72,7 +72,7 @@ impl ToString for VarValue {
             }
             VarValue::Exec(ex) => {
                 if ex.code == 0 {
-                    format!("{}", ex.stdout)
+                    ex.stdout.to_string()
                 } else {
                     String::new()
                 }
@@ -174,16 +174,14 @@ impl VarValue {
             VarValue::Exec(ex) => {
                 if ex.stdout.is_empty() {
                     0
-                } else {
-                    if let Some(s) = ex.stdout.lines().next() {
-                        let strim = s.trim();
-                        match strim.parse::<i64>() {
-                            Err(_) => 0,
-                            Ok(i) => i,
-                        }
-                    } else {
-                        0
+                } else if let Some(s) = ex.stdout.lines().next() {
+                    let strim = s.trim();
+                    match strim.parse::<i64>() {
+                        Err(_) => 0,
+                        Ok(i) => i,
                     }
+                } else {
+                    0
                 }
             }
         }
@@ -209,7 +207,7 @@ impl VarValue {
                         true
                     }
                 }
-                VarValue::Exec(ex_val) => ex_val.code == 0 && ex_val.stdout.trim() == &self.to_string(),
+                VarValue::Exec(ex_val) => ex_val.code == 0 && ex_val.stdout.trim() == self.to_string(),
                 VarValue::Str(s) => &self.to_flat_string() == s,
                 VarValue::Int(i) => {
                     if lst1.len() != 1 {
@@ -260,21 +258,21 @@ impl VarValue {
             },
             VarValue::Exec(ex) => match val {
                 VarValue::Exec(ex_val) => ex.code > ex_val.code,
-                VarValue::Str(s) => &ex.stdout > s,
+                VarValue::Str(s) => ex.stdout > *s,
                 VarValue::Int(i) => i64::from(ex.code) > *i,
                 VarValue::List(_) => ex.code == 0 && ex.stdout > val.to_string(),
                 _ => true,
             },
             VarValue::Str(s) => match val {
-                VarValue::Exec(ex_val) => s > &ex_val.stdout,
+                VarValue::Exec(ex_val) => *s > ex_val.stdout,
                 VarValue::Str(s_val) => s > s_val,
-                VarValue::Int(i) => s > &format!("{}", *i),
+                VarValue::Int(i) => *s > format!("{}", *i),
                 VarValue::List(_) => s > &val.to_flat_string(),
                 _ => true,
             },
             VarValue::Int(i) => match val {
                 VarValue::Exec(ex_val) => *i > i64::from(ex_val.code),
-                VarValue::Str(s_val) => &format!("{}", *i) > s_val,
+                VarValue::Str(s_val) => format!("{}", *i) > *s_val,
                 VarValue::Int(i_val) => *i > *i_val,
                 VarValue::List(lst) => {
                     if lst.is_empty() {
@@ -325,21 +323,21 @@ impl VarValue {
             },
             VarValue::Exec(ex) => match val {
                 VarValue::Exec(ex_val) => ex.code < ex_val.code,
-                VarValue::Str(s) => &ex.stdout < s,
+                VarValue::Str(s) => ex.stdout < *s,
                 VarValue::Int(i) => i64::from(ex.code) < *i,
                 VarValue::List(_) => ex.code != 0 || ex.stdout < val.to_string(),
                 _ => false,
             },
             VarValue::Str(s) => match val {
-                VarValue::Exec(ex_val) => s < &ex_val.stdout,
+                VarValue::Exec(ex_val) => *s < ex_val.stdout,
                 VarValue::Str(s_val) => s < s_val,
-                VarValue::Int(i) => s < &format!("{}", i),
-                VarValue::List(_) => s < &val.to_flat_string(),
+                VarValue::Int(i) => *s < format!("{}", i),
+                VarValue::List(_) => *s < val.to_flat_string(),
                 _ => false,
             },
             VarValue::Int(i) => match val {
-                VarValue::Exec(ex_val) => i < &i64::from(ex_val.code),
-                VarValue::Str(s_val) => &format!("{}", i) < s_val,
+                VarValue::Exec(ex_val) => *i < i64::from(ex_val.code),
+                VarValue::Str(s_val) => format!("{}", i) < *s_val,
                 VarValue::Int(i_val) => i < i_val,
                 VarValue::List(lst) => {
                     if lst.is_empty() {

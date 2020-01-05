@@ -556,7 +556,7 @@ fn rand_string(args: &[VarValue]) -> FuncResult {
 
     let l = args[0].to_int();
     if l <= 0 {
-        return Err("lenght must be greater than 0".to_string());
+        return Err("length must be greater than 0".to_string());
     }
     let ls = l as usize;
     let chr: Vec<char> = if args.len() == 1 {

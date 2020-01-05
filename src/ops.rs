@@ -132,10 +132,10 @@ pub enum Op {
 /// Converts a prefix of a script line to a runtime flags
 fn str_to_flags(s: &str) -> u32 {
     let mut flags: u32 = 0;
-    if let Some(_) = s.find('@') {
+    if s.find('@').is_some() {
         flags |= FLAG_QUIET;
     }
-    if let Some(_) = s.find('-') {
+    if s.find('-').is_some() {
         flags |= FLAG_PASS;
     }
     flags
@@ -198,9 +198,8 @@ pub fn build_include(p: Pairs<Rule>) -> Result<Op, HakuError> {
 pub fn build_error(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let mut cmd = String::new();
     for s in p {
-        match s.as_rule() {
-            Rule::error_body => cmd = strip_quotes(s.as_str()).to_string(),
-            _ => {}
+        if let Rule::error_body = s.as_rule() {
+            cmd = strip_quotes(s.as_str()).to_string();
         }
     }
 
@@ -565,11 +564,8 @@ pub fn build_either_def_assign(p: Pairs<Rule>) -> Result<Op, HakuError> {
 /// Parses IF statement
 pub fn build_if(p: Pairs<Rule>) -> Result<Op, HakuError> {
     for pair in p {
-        match pair.as_rule() {
-            Rule::cond => {
-                return Ok(Op::If(build_condition(pair.into_inner())?));
-            }
-            _ => {} // "if"
+        if let Rule::cond = pair.as_rule() {
+            return Ok(Op::If(build_condition(pair.into_inner())?));
         }
     }
     unreachable!()
@@ -578,11 +574,8 @@ pub fn build_if(p: Pairs<Rule>) -> Result<Op, HakuError> {
 /// Parses ELSEIF statement
 pub fn build_elseif(p: Pairs<Rule>) -> Result<Op, HakuError> {
     for pair in p {
-        match pair.as_rule() {
-            Rule::cond => {
-                return Ok(Op::ElseIf(build_condition(pair.into_inner())?));
-            }
-            _ => {} // "if"
+        if let Rule::cond = pair.as_rule() {
+            return Ok(Op::ElseIf(build_condition(pair.into_inner())?));
         }
     }
     unreachable!()
@@ -591,11 +584,8 @@ pub fn build_elseif(p: Pairs<Rule>) -> Result<Op, HakuError> {
 /// Parses WHILE statement
 pub fn build_while(p: Pairs<Rule>) -> Result<Op, HakuError> {
     for pair in p {
-        match pair.as_rule() {
-            Rule::cond => {
-                return Ok(Op::While(build_condition(pair.into_inner())?));
-            }
-            _ => {} // "if"
+        if let Rule::cond = pair.as_rule() {
+            return Ok(Op::While(build_condition(pair.into_inner())?));
         }
     }
     unreachable!()

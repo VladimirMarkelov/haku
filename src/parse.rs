@@ -327,13 +327,11 @@ impl HakuFile {
                 Op::If(_) | Op::While(_) | Op::For(_, _) => {
                     if skip != Skip::None {
                         nesting += 1;
+                    } else if ds.pass {
+                        op_list.push(o);
                     } else {
-                        if ds.pass {
-                            op_list.push(o);
-                        } else {
-                            skip = Skip::Command;
-                            nesting = 1;
-                        }
+                        skip = Skip::Command;
+                        nesting = 1;
                     }
                     ds.reset();
                 }

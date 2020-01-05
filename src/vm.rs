@@ -85,7 +85,7 @@ pub struct RecipeDesc {
 
 impl fmt::Display for RecipeDesc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut r = write!(f, "{}", self.name)?;
+        write!(f, "{}", self.name)?;
         if !self.vars.is_empty() {
             write!(f, " (")?;
             for v in self.vars.iter() {
@@ -98,12 +98,12 @@ impl fmt::Display for RecipeDesc {
             for dep in self.depends.iter() {
                 write!(f, "{},", dep)?;
             }
-            r = write!(f, "]")?;
+            write!(f, "]")?;
         }
         if !self.desc.is_empty() {
-            r = write!(f, " #{}", self.desc)?;
+            write!(f, " #{}", self.desc)?;
         }
-        Ok(r)
+        Ok(())
     }
 }
 
@@ -208,7 +208,7 @@ impl Engine {
         #[cfg(not(windows))]
         let shell = vec!["sh".to_string(), "-cu".to_string()];
 
-        let eng = Engine {
+        Engine {
             files: Vec::new(),
             included: Vec::new(),
             recipes: Vec::new(),
@@ -218,8 +218,7 @@ impl Engine {
             file_idx: usize::MAX,
             opts,
             shell,
-        };
-        eng
+        }
     }
 
     /// Returns filename & its line by their indices
@@ -359,12 +358,12 @@ impl Engine {
         if file_idx >= self.files.len() {
             return Err(HakuError::FileNotLoaded(file_idx));
         }
-        return Ok(&self.included[file_idx]);
+        Ok(&self.included[file_idx])
     }
 
     /// Returns info about all loaded available recipes
     pub fn recipes(&self) -> &[RecipeDesc] {
-        return &self.recipes;
+        &self.recipes
     }
 
     /// Returns info about all loaded disabled recipes
@@ -398,7 +397,7 @@ impl Engine {
         if min == usize::MAX {
             min = self.files[file].orig_lines.len();
         }
-        return min;
+        min
     }
 
     /// Returns the content of a recipe that would be executed
@@ -1110,7 +1109,7 @@ impl Engine {
         assert!(ops.len() == 1);
         let v = self.exec_op(&ops[0])?;
         if v.is_true() {
-            let lst: Vec<Op> = ops.iter().cloned().collect();
+            let lst: Vec<Op> = ops.to_vec();
             self.cond_stack.push(CondItem { line: idx, cond: Condition::While(lst) });
         }
         Ok(v.is_true())
@@ -1124,7 +1123,7 @@ impl Engine {
         if let Some(op) = self.cond_stack.pop() {
             output!(self.opts.verbosity, 3, "END OP >> {:?}", op);
             match op.cond {
-                Condition::If(_) => return Ok(0), // just continue
+                Condition::If(_) => Ok(0), // just continue
                 Condition::While(ref ops) => {
                     // should be 1 operation
                     assert!(ops.len() == 1);
@@ -1132,9 +1131,9 @@ impl Engine {
                     if val.is_true() {
                         let ln = op.line + 1;
                         self.cond_stack.push(op);
-                        return Ok(ln);
+                        Ok(ln)
                     } else {
-                        return Ok(0);
+                        Ok(0)
                     }
                 }
                 Condition::ForList(var, mut vals) => {
@@ -1146,7 +1145,7 @@ impl Engine {
                     vals.remove(0);
                     self.varmgr.set_var(&var, VarValue::Str(val));
                     self.cond_stack.push(CondItem { line: op.line, cond: Condition::ForList(var, vals) });
-                    return Ok(op.line + 1);
+                    Ok(op.line + 1)
                 }
                 Condition::ForInt(var, mut curr, end, step) => {
                     curr += step;
@@ -1156,11 +1155,11 @@ impl Engine {
                     }
                     self.varmgr.set_var(&var, VarValue::Int(curr));
                     self.cond_stack.push(CondItem { line: op.line, cond: Condition::ForInt(var, curr, end, step) });
-                    return Ok(op.line + 1);
+                    Ok(op.line + 1)
                 }
             }
         } else {
-            return Err(HakuError::StrayEndError(self.error_extra()));
+            Err(HakuError::StrayEndError(self.error_extra()))
         }
     }
 
