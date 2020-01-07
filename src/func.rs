@@ -282,10 +282,7 @@ fn system_path(pathtype: SysPath) -> FuncResult {
 /// Prints all arguments separating them with a space. If `add_new_line` is true,
 /// outputs `\n` at the end.
 fn print_all(args: &[VarValue], add_new_line: bool) -> FuncResult {
-    for (idx, v) in args.iter().enumerate() {
-        if idx != 0 {
-            print!(" ");
-        }
+    for v in args.iter() {
         print!("{}", v.to_string());
     }
     if add_new_line {
