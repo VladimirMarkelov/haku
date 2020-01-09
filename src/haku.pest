@@ -61,7 +61,7 @@ assign = { ident ~ assign_sym ~ assign_expr ~ eoi }
 
 stmt_open = { ";"? ~ (^"then" | ^"do" | ":" | "{") ~ ";"? }
 stmt_close = { ^"end" | "}" | ^"done" ~ eoi }
-return_stmt = { ^"return" ~ eoi }
+return_stmt = { (^"return" | ^"finish") ~ eoi }
 
 if_word = { ^"if" }
 elseif_word = { ^"elseif" }
