@@ -32,7 +32,7 @@ andexpr = { sexpr ~ (and_op ~ sexpr)* }
 cond = { andexpr ~ (or_op ~ andexpr)* }
 
 include_body = { string | ident }
-include_stmt = { cmd_flags? ~ ^"include" ~ include_body ~ eoi}
+include_stmt = { cmd_flags? ~ (^"include" | ^"import") ~ include_body ~ eoi}
 
 error_body = { string }
 error_stmt = { ^"error" ~ error_body }

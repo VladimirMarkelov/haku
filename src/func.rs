@@ -584,7 +584,7 @@ fn rand_string(args: &[VarValue]) -> FuncResult {
 /// NOTE: all values are converted into integers.
 fn increment(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
-        return Ok(VarValue::Int(0));
+        return Ok(VarValue::Int(1));
     }
 
     let mut val = args[0].to_int();
@@ -603,7 +603,7 @@ fn increment(args: &[VarValue]) -> FuncResult {
 /// NOTE: all values are converted into integers.
 fn decrement(args: &[VarValue]) -> FuncResult {
     if args.is_empty() {
-        return Ok(VarValue::Int(0));
+        return Ok(VarValue::Int(-1));
     }
 
     let mut val = args[0].to_int();
@@ -894,7 +894,12 @@ mod path_test {
     fn inc() {
         let v: Vec<VarValue> = Vec::new();
         let r = increment(&v);
-        assert_eq!(r, Ok(VarValue::Int(0)));
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let v = vec![VarValue::from("abc")];
+        let r = increment(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
+        let r = increment(&v);
+        assert_eq!(r, Ok(VarValue::Int(1)));
         let v = vec![VarValue::from(10)];
         let r = increment(&v);
         assert_eq!(r, Ok(VarValue::Int(11)));
@@ -907,7 +912,10 @@ mod path_test {
     fn dec() {
         let v: Vec<VarValue> = Vec::new();
         let r = decrement(&v);
-        assert_eq!(r, Ok(VarValue::Int(0)));
+        assert_eq!(r, Ok(VarValue::Int(-1)));
+        let v = vec![VarValue::from("abc")];
+        let r = decrement(&v);
+        assert_eq!(r, Ok(VarValue::Int(-1)));
         let v = vec![VarValue::from(10)];
         let r = decrement(&v);
         assert_eq!(r, Ok(VarValue::Int(9)));
