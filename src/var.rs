@@ -257,13 +257,15 @@ impl VarValue {
                 _ => false,
             },
             VarValue::Exec(ex) => match val {
-                VarValue::Exec(ex_val) => if ex.code == 0 && ex_val.code != 0 {
+                VarValue::Exec(ex_val) => {
+                    if ex.code == 0 && ex_val.code != 0 {
                         true
                     } else if ex.code != 0 && ex_val.code == 0 {
                         false
                     } else {
                         ex.code > ex_val.code
-                    },
+                    }
+                }
                 VarValue::Str(s) => ex.stdout > *s,
                 VarValue::Int(i) => i64::from(ex.code) > *i,
                 VarValue::List(_) => ex.code == 0 && ex.stdout > val.to_string(),
@@ -273,7 +275,7 @@ impl VarValue {
                 VarValue::Exec(ex_val) => *s > ex_val.stdout,
                 VarValue::Str(s_val) => s > s_val,
                 VarValue::Int(i) => *s > format!("{}", *i),
-                VarValue::List(_) => s > &val.to_flat_string(),
+                VarValue::List(_) => *s > val.to_flat_string(),
                 _ => true,
             },
             VarValue::Int(i) => match val {
@@ -292,7 +294,7 @@ impl VarValue {
             },
             VarValue::List(lst) => match val {
                 VarValue::Exec(ex) => ex.code != 0 || self.to_string() > ex.stdout,
-                VarValue::Str(s) => &self.to_flat_string() > s,
+                VarValue::Str(s) => self.to_flat_string() > *s,
                 VarValue::Int(i) => {
                     if lst.is_empty() {
                         false
@@ -306,7 +308,7 @@ impl VarValue {
                         true
                     } else {
                         for (idx, v) in lst.iter().enumerate() {
-                            if v <= &lst2[idx] {
+                            if *v <= lst2[idx] {
                                 return false;
                             }
                         }
@@ -328,13 +330,15 @@ impl VarValue {
                 _ => true,
             },
             VarValue::Exec(ex) => match val {
-                VarValue::Exec(ex_val) => if ex.code == 0 && ex_val.code != 0 {
+                VarValue::Exec(ex_val) => {
+                    if ex.code == 0 && ex_val.code != 0 {
                         true
                     } else if ex.code != 0 && ex_val.code == 0 {
                         false
                     } else {
                         ex.code > ex_val.code
-                    },
+                    }
+                }
                 VarValue::Str(s) => ex.stdout < *s,
                 VarValue::Int(i) => i64::from(ex.code) < *i,
                 VarValue::List(_) => ex.code != 0 || ex.stdout < val.to_string(),
@@ -363,7 +367,7 @@ impl VarValue {
             },
             VarValue::List(lst) => match val {
                 VarValue::Exec(ex) => ex.code == 0 && self.to_string() < ex.stdout,
-                VarValue::Str(s) => &self.to_flat_string() < s,
+                VarValue::Str(s) => self.to_flat_string() < *s,
                 VarValue::Int(i) => {
                     if lst.is_empty() {
                         false
@@ -377,7 +381,7 @@ impl VarValue {
                         false
                     } else {
                         for (idx, v) in lst.iter().enumerate() {
-                            if v >= &lst2[idx] {
+                            if *v >= lst2[idx] {
                                 return false;
                             }
                         }

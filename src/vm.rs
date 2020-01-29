@@ -1297,7 +1297,7 @@ impl Engine {
             },
             Op::Not(ops) => {
                 // now Not must contain only 1 op - it should be by *.pest rules
-                for o in ops.iter() {
+                if let Some(o) = ops.iter().next() {
                     let v = self.exec_op(o)?;
                     if v.is_true() {
                         return Ok(VarValue::Int(0));
