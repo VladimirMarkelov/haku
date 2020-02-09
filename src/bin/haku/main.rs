@@ -95,7 +95,7 @@ fn detect_taskfile() -> String {
     for name in names.iter() {
         let p = Path::new(name);
         if p.is_file() {
-            return name.to_string();
+            return (*name).to_string();
         }
     }
 
@@ -151,13 +151,9 @@ fn main() -> Result<(), HakuError> {
         exit(0);
     }
 
-    let res = eng.run_recipe(&conf.recipe);
-    match res {
-        Err(e) => {
-            eprintln!("{}", e);
-            exit(1);
-        }
-        _ => {}
+    if let Err(e) = eng.run_recipe(&conf.recipe) {
+        eprintln!("{}", e);
+        exit(1);
     };
     Ok(())
 }
