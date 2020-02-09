@@ -569,10 +569,10 @@ fn rand_string(args: &[VarValue]) -> FuncResult {
     }
 
     let mut rng = thread_rng();
-    let mut c: Vec<char> = vec![' '; ls];
-    for idx in 0..ls {
+    let mut c: Vec<char> = Vec::with_capacity(ls);
+    for _idx in 0..ls {
         let cidx = rng.gen_range(0, mx) as usize;
-        c[idx] = chr[cidx];
+        c.push(chr[cidx]);
     }
 
     let s: String = c.into_iter().collect();

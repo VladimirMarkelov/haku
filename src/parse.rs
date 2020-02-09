@@ -312,6 +312,9 @@ impl HakuFile {
                     } else if skip != Skip::None || ds.pass {
                         skip = Skip::None;
                         op_list.append(&mut ds.f_list);
+                        if !ds.next_desc.is_empty() {
+                            op_list.push(OpItem { op: Op::DocComment(ds.next_desc.clone()), line: o.line });
+                        }
                         op_list.push(o);
                     } else if !ds.pass {
                         self.disabled.push(DisabledRecipe {

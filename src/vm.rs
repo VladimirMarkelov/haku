@@ -43,9 +43,15 @@ pub struct RunOpts {
     dry_run: bool,
 }
 
+impl Default for RunOpts {
+    fn default() -> Self {
+        RunOpts { dry_run: false, feats: Vec::new(), verbosity: 0 }
+    }
+}
+
 impl RunOpts {
     pub fn new() -> Self {
-        RunOpts { dry_run: false, feats: Vec::new(), verbosity: 0 }
+        Default::default()
     }
 
     pub fn with_dry_run(mut self, dry_run: bool) -> Self {
@@ -875,7 +881,7 @@ impl Engine {
                 eprint!("{}", s);
             }
             return Err(HakuError::ExecFailureError(
-                cmdline.to_string(),
+                cmdline,
                 format!("exit code {}", out.status.code().unwrap_or(0)),
                 self.error_extra(),
             ));
@@ -922,7 +928,7 @@ impl Engine {
                 None => "(unknown exit code)".to_string(),
                 Some(c) => format!("(exit code: {}", c),
             };
-            return Err(HakuError::ExecFailureError(cmdline.to_string(), code, self.error_extra()));
+            return Err(HakuError::ExecFailureError(cmdline, code, self.error_extra()));
         }
 
         Ok(())
@@ -1186,7 +1192,7 @@ impl Engine {
                 Condition::If(_) => continue,
                 _ => {
                     next = self.find_end(file, cnd.line + 1, "continue")?;
-                    self.cond_stack.push(cnd.clone());
+                    self.cond_stack.push(cnd);
                     break;
                 }
             }

@@ -81,7 +81,7 @@ pub fn parse_args() -> Result<Config, HakuError> {
         conf.verbose = matches.opt_count("v");
     }
     conf.version = matches.opt_present("version");
-    if matches.free.len() != 0 {
+    if !matches.free.is_empty() {
         conf.recipe = matches.free[0].clone();
     }
     if matches.free.len() > 1 {
