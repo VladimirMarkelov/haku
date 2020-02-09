@@ -17,3 +17,17 @@ dirs = "2.0"
 rand = "0.7"
 unicode-width = "0.1"
 regex = "1"
+
+[package.metadata.deb]
+section = "utility"
+depends = "$auto"
+priority = "optional"
+assets = [
+	["target/release/haku", "usr/bin/", "755"],
+	["LICENSE", "usr/share/doc/haku/", "644"],
+	["docs/usage.md", "usr/share/doc/haku/README", "644"],
+]
+extended-description = """\
+A command runner - a handy way to execute project- or directory-specific tasks.\
+"""
+changelog = "changelog"
