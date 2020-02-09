@@ -51,7 +51,7 @@ pub fn parse_args() -> Result<Config, HakuError> {
     opts.optflag("h", "help", "Show this help");
     opts.optflagmulti("v", "verbose", "Display extra information");
     opts.optflag("", "version", "Display application version");
-    opts.optflag("", "dry-run", "Dry run: do not change todo list, only show which todos would be changed");
+    opts.optflag("", "dry-run", "Dry run: do not external command, only display them");
     opts.optflag("l", "list", "list available commands");
     opts.optopt("f", "file", "Haku file path", "FILENAME");
     opts.optopt("", "feature", "use features", "Feature1,Feature2");
