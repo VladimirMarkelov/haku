@@ -401,10 +401,10 @@ rule is simple: if it is an action that changes the variable value (left side as
 a variable of `for` loop) - the name must be a "bare" one (e.g., `name = 10` or `for name in 1..3`).
 In all other cases a leading character `$` is required(e.g., `name = $name2`). To make a variable
 name more readable and easier to parse, the name can be enclosed between curly brackets
-(e.g., `name = ${name2}`). 
+(e.g., `name = ${name2}`).
 
 Note: As of version 0.3, there is one more requirement for interpolated strings: all variable
-names inside strings and external shell commands must be inside curly brackets. So, if you have 
+names inside strings and external shell commands must be inside curly brackets. So, if you have
 a variable `cnt` with value `5`, assignment `name = "Total: ${cnt}"` works as expected, while
 `name = "Total: $cnt"` does not do substitution and variable `name` gets
 value `Total: $cnt` instead of correct `Total: 5`.
@@ -464,7 +464,7 @@ Operator `?` assigns the first "truthy" value from the list. Shorthand evaluatio
 a = $b ? $c ? "default"
 ```
 
-The expression assigns to variable `a` the first non-zero value from `$b`, `$c` and `default`. This 
+The expression assigns to variable `a` the first non-zero value from `$b`, `$c` and `default`. This
 operator works similar to `||` operator but the result of `?` is a real value while the result of `||`
 is always `false` or `true`.
 
@@ -482,7 +482,7 @@ This expression executes `ls *.txt` and assigns its value to variable `a` only i
 did not exist or had falsy value before the assignment.
 
 At first sight `a ?= $b` looks like a syntax sugar for `a = $a ? $b`. But it is not true always.
-In case of `?=` the right side of an assignment may be a full-featured expression (e.g., 
+In case of `?=` the right side of an assignment may be a full-featured expression (e.g.,
 `a ?= $b == 10 || $b ==12`).
 
 Both operators can be combined: `a ?= $b ? $c ? "default"`. This expression is a syntax sugar for
@@ -490,7 +490,7 @@ Both operators can be combined: `a ?= $b ? $c ? "default"`. This expression is a
 
 ### External command execution
 
-The engine runs external command via shell when: 
+The engine runs external command via shell when:
 
 - an expression contains a text enclosed between backticks. In this case, the enclosed text is
   executed and the result is used in expression. The script execution is never interrupted, even
@@ -514,7 +514,7 @@ The recipe prints only `mkdir logs` to a terminal. And it executes all three com
 because the recipe has flag `-`(ignore all errors). Only if the last command fails the script
 execution is interrupted because `-cp new.log logs/` inverses recipe flag `-`.
 
-Note: the engine always displays an error if a command failed even if it is executed 
+Note: the engine always displays an error if a command failed even if it is executed
 with flag `-`.
 
 #### Command execution result
@@ -576,7 +576,7 @@ escape character `\`.
 
 Available attributes:
 
-- `family` - OS family (one of `unix`, `windows`);
+- `family` or `platform` - OS family (one of `unix`, `windows`);
 - `os` - OS type (one of `window`, `linux`, `freebsd`, `macos`, `android`, `ios`, `netbsd`, `openbsd`,
   `solaris`, `haiku`, `dragonfly`, `bitrig`, `emscripten`);
 - `bit` - 32- or 64-bit architecture (on of `32`, `64`);
@@ -790,7 +790,7 @@ even on 64-bit Linux(e.g., with Wine), `bit` will return `"32"` and `family` wil
 
 - `os` - operation system: android, bitrig, dragonfly, emscripten, freebsd, haiku, ios, linux,
   macos, netbsd, openbsd, solaris, windows
-- `family` - operation system family: unix, windows
+- `family` or `platform` - operation system family: unix, windows
 - `bit` - architecture(pointer size in bits): 32, 64
 - `arch` - CPU architecture: aarch64, arm, asmjs, hexagon, mips, mips64, msp430, powerpc,
   powerpc64, s390x, sparc, sparc64, wasm32, x86, x86_64, xcore
@@ -846,7 +846,7 @@ even on 64-bit Linux(e.g., with Wine), `bit` will return `"32"` and `family` wil
   expressions: `match("ab12cd", "def", "\d+")` -> `true` because the second regular expression `\d+`
   matches `12` in the string
 - `pad-center` - `pad-center(str, padding, max_width)` appends padding from both ends of the string
-  `str` until its length reaches `max_width`. `max_width` is the length in characters, not in 
+  `str` until its length reaches `max_width`. `max_width` is the length in characters, not in
   bytes. If the number of characters to add is odd, left side gets more padding characters.
   NOTE: `padding` can be string of any length, and if it is longer than 1 character, it is possible
   that the result string would be less than `max_width` because the function extends an original
@@ -879,10 +879,14 @@ even on 64-bit Linux(e.g., with Wine), `bit` will return `"32"` and `family` wil
 #### Miscellanea
 
 - `print` - `print(any1[, any2...]` prints all arguments to standard output without adding new
-  line after the last one. It is kind of `echo` substitute. Why to use `print` instead 
+  line after the last one. It is kind of `echo` substitute. Why to use `print` instead
   of `echo`: 1) `echo` is a shell command, so it is slower than `print` that makes `print`, e.g.,
   a good and fast tool to debug a script; 2) `echo` does string interpolation, so it supports
-  only variable names, `print` evaluates every argument, so it supports expressions and 
+  only variable names, `print` evaluates every argument, so it supports expressions and
   function calls. Example: `print("a=",$a,". INC a=",inc($a))`, assuming `a` is uninitialized,
   outputs `"a= . INC a=1"`
 - `println` - the same as `print` but automatically prints a new line character after the last argument.
+- `shell` - set the current shell to execute external commands.
+  Default value for Windows: `shell("cmd.exe", "/C")`, for other OS: `shell("sh", "-cu")`.
+  If you want to use powershell on Windows, add to your script header the line:
+  `shell("powershell", "-c")`

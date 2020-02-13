@@ -28,7 +28,7 @@ a good word for a command runner.
 
 ### Why only variable names are case-sensitive
 
-I wanted to make everything case-insensitive, so people can write in any way they like. But 
+I wanted to make everything case-insensitive, so people can write in any way they like. But
 variables are a special case. If a variable is not initialized by a script, its value is read
 from environment variable (transparent usage of environment variables). E.g., in Linux
 the name of environment variable is case sensitive. Hence there is discrepancy.

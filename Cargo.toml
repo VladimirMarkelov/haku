@@ -3,6 +3,12 @@ name = "hakufile"
 version = "0.3.1"
 authors = ["Vladimir Markelov <vmatroskin@gmail.com>"]
 edition = "2018"
+license = "Apache-2.0"
+description = "A command runner - a handy way to execute project specific tasks"
+readme = "README.md"
+categories = ["command-line-utilities"]
+keywords = ["terminal", "cli", "utility", "command", "runner"]
+repository = "https://github.com/VladimirMarkelov/haku"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
