@@ -95,7 +95,7 @@ pub fn process_feature(p: Pairs<Rule>, opts: &RunOpts, feats: &mut Vec<String>) 
                     let pass = match f_name.as_str() {
                         "os" => check_feature_val(os(), sss.into_inner(), inverse),
                         "bit" => check_feature_val(pointer_width(), sss.into_inner(), inverse),
-                        "family" => check_feature_val(os_family(), sss.into_inner(), inverse),
+                        "family" | "platform" => check_feature_val(os_family(), sss.into_inner(), inverse),
                         "arch" => check_feature_val(arch(), sss.into_inner(), inverse),
                         "endian" => check_feature_val(endian(), sss.into_inner(), inverse),
                         "feature" | "feat" => check_feature_list(&opts.feats, sss.into_inner(), inverse, feats),

@@ -926,7 +926,7 @@ impl Engine {
         if !st.success() && !is_flag_on(flags, FLAG_PASS) {
             let code = match st.code() {
                 None => "(unknown exit code)".to_string(),
-                Some(c) => format!("(exit code: {}", c),
+                Some(c) => format!("(exit code: {})", c),
             };
             return Err(HakuError::ExecFailureError(cmdline, code, self.error_extra()));
         }
@@ -1027,10 +1027,7 @@ impl Engine {
         }
         let r = run_func(name, &args);
         output!(self.opts.verbosity, 3, "func {} with {} args returned {:?}", name, ops.len(), r);
-        match r {
-            Ok(r) => Ok(r),
-            Err(s) => Err(HakuError::FunctionError(format!("{}: {}", s, self.error_extra()))),
-        }
+        r.map_err(|s| HakuError::FunctionError(format!("{}: {}", s, self.error_extra())))
     }
 
     /// Evaluates a condition `ops`. If it is true, starts executing `if` body. Otherwise,

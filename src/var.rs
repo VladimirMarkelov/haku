@@ -155,20 +155,14 @@ impl VarValue {
                 if s.is_empty() {
                     0
                 } else {
-                    match s.parse::<i64>() {
-                        Err(_) => 0,
-                        Ok(v) => v,
-                    }
+                    s.parse::<i64>().unwrap_or(0)
                 }
             }
             VarValue::List(v) => {
                 if v.is_empty() || v[0].is_empty() {
                     0
                 } else {
-                    match v[0].parse::<i64>() {
-                        Err(_) => 0,
-                        Ok(v) => v,
-                    }
+                    v[0].parse::<i64>().unwrap_or(0)
                 }
             }
             VarValue::Exec(ex) => {
@@ -176,10 +170,7 @@ impl VarValue {
                     0
                 } else if let Some(s) = ex.stdout.lines().next() {
                     let strim = s.trim();
-                    match strim.parse::<i64>() {
-                        Err(_) => 0,
-                        Ok(i) => i,
-                    }
+                    strim.parse::<i64>().unwrap_or(0)
                 } else {
                     0
                 }
@@ -547,14 +538,8 @@ impl VarMgr {
         let mut s_ptr = in_str;
 
         while !s_ptr.is_empty() {
-            start_d = match s_ptr.find('$') {
-                None => usize::MAX,
-                Some(pos) => pos,
-            };
-            start_s = match s_ptr.find('\\') {
-                None => usize::MAX,
-                Some(pos) => pos,
-            };
+            start_d = s_ptr.find('$').unwrap_or(usize::MAX);
+            start_s = s_ptr.find('\\').unwrap_or(usize::MAX);
 
             if start_s == usize::MAX && start_d == usize::MAX {
                 return res + s_ptr;

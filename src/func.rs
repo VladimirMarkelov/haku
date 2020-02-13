@@ -72,7 +72,7 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
     let lowstr = name.to_lowercase();
     match lowstr.as_str() {
         "os" => Ok(VarValue::from(os())),
-        "family" => Ok(VarValue::from(os_family())),
+        "family" | "platform" => Ok(VarValue::from(os_family())),
         "bit" => Ok(VarValue::from(pointer_width())),
         "arch" => Ok(VarValue::from(arch())),
         "endian" => Ok(VarValue::from(endian())),
@@ -623,7 +623,10 @@ mod path_test {
 
     #[test]
     fn extract() {
+        #[cfg(windows)]
         let v = vec![VarValue::from("c:\\tmp\\file.abc")];
+        #[cfg(unix)]
+        let v = vec![VarValue::from("/tmp/file.abc")];
         let r = extract_part(&v, PathPart::Ext);
         assert_eq!(r, Ok(VarValue::from("abc")));
         let r = extract_part(&v, PathPart::Stem);
@@ -631,60 +634,63 @@ mod path_test {
         let r = extract_part(&v, PathPart::Name);
         assert_eq!(r, Ok(VarValue::from("file.abc")));
         let r = extract_part(&v, PathPart::Dir);
+        #[cfg(windows)]
         assert_eq!(r, Ok(VarValue::from("c:\\tmp")));
+        #[cfg(unix)]
+        assert_eq!(r, Ok(VarValue::from("/tmp")));
     }
 
     #[test]
     fn change_ext() {
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("file.abc"), VarValue::Str(String::new())];
         let r = replace_ext(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("def")];
+        assert_eq!(r, Ok(VarValue::from("file")));
+        let v = vec![VarValue::from("file.abc"), VarValue::from("def")];
         let r = replace_ext(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.def")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
+        assert_eq!(r, Ok(VarValue::from("file.def")));
+        let v = vec![VarValue::from("file.abc")];
         let r = replace_ext(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc")));
+        assert_eq!(r, Ok(VarValue::from("file.abc")));
     }
 
     #[test]
     fn append_ext() {
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("file.abc"), VarValue::Str(String::new())];
         let r = add_ext(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("def")];
+        assert_eq!(r, Ok(VarValue::from("file.abc")));
+        let v = vec![VarValue::from("file.abc"), VarValue::from("def")];
         let r = add_ext(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc.def")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
+        assert_eq!(r, Ok(VarValue::from("file.abc.def")));
+        let v = vec![VarValue::from("file.abc")];
         let r = add_ext(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\file.abc")));
+        assert_eq!(r, Ok(VarValue::from("file.abc")));
     }
 
     #[test]
     fn change_name() {
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("file.abc"), VarValue::Str(String::new())];
         let r = replace_name(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("some.def")];
+        assert_eq!(r, Ok(VarValue::from("")));
+        let v = vec![VarValue::from("file.abc"), VarValue::from("some.def")];
         let r = replace_name(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\some.def")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
+        assert_eq!(r, Ok(VarValue::from("some.def")));
+        let v = vec![VarValue::from("file.abc")];
         let r = replace_name(&v);
         assert!(r.is_err());
     }
 
     #[test]
     fn change_stem() {
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::Str(String::new())];
+        let v = vec![VarValue::from("file.abc"), VarValue::Str(String::new())];
         let r = replace_stem(&v);
         assert!(r.is_err());
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("some.def")];
+        let v = vec![VarValue::from("file.abc"), VarValue::from("some.def")];
         let r = replace_stem(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\some.def.abc")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc"), VarValue::from("some")];
+        assert_eq!(r, Ok(VarValue::from("some.def.abc")));
+        let v = vec![VarValue::from("file.abc"), VarValue::from("some")];
         let r = replace_stem(&v);
-        assert_eq!(r, Ok(VarValue::from("c:\\tmp\\some.abc")));
-        let v = vec![VarValue::from("c:\\tmp\\file.abc")];
+        assert_eq!(r, Ok(VarValue::from("some.abc")));
+        let v = vec![VarValue::from("file.abc")];
         let r = replace_stem(&v);
         assert!(r.is_err());
     }
