@@ -139,6 +139,10 @@ Active recipe: build
   the application looks for files `Taskfile` or `Hakufile` and runs the first found one
 - `--feature` - set a comma separated list of custom features for a script
 
+## Known issues
+
+TODO: about cmd.exe and quotes
+
 ## Hakufile syntax
 
 ### Basics
@@ -887,6 +891,6 @@ even on 64-bit Linux(e.g., with Wine), `bit` will return `"32"` and `family` wil
   outputs `"a= . INC a=1"`
 - `println` - the same as `print` but automatically prints a new line character after the last argument.
 - `shell` - set the current shell to execute external commands.
-  Default value for Windows: `shell("cmd.exe", "/C")`, for other OS: `shell("sh", "-cu")`.
-  If you want to use powershell on Windows, add to your script header the line:
-  `shell("powershell", "-c")`
+  Default value for Windows: `shell("powershell", "-c")`, for other OS: `shell("sh", "-cu")`.
+  If you want to use command prompt on Windows, add to your script header the line:
+  `shell("cmd.exe", "/C")`
