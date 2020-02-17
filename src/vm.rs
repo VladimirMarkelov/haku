@@ -159,7 +159,7 @@ pub struct Engine {
     varmgr: VarMgr,
     /// What shell is used to execute any external command. By default:
     ///
-    /// * Windows = `["cmd", "/c"]`
+    /// * Windows = `["powershell", "-c"]`
     /// * Others = `["sh", "-cu"]`
     shell: Vec<String>,
     /// Runtime options passed by a caller
