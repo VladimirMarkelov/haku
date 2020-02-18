@@ -32,7 +32,8 @@ When `haku` starts without task file name, first, it looks for `Taskfile`. If it
 All commands are either free ones(those must be in the file beginning), or grouped by sections -
 a section is called a `recipe`. The file syntax is relaxed and simplified `makefile` one.
 
-TODO: image
+Internally `haku` uses `powershell` on Windows and `sh` on any other OS to execute an external
+command. You can override the default using `shell` built-in function.
 
 ### License
 

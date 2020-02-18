@@ -6,6 +6,7 @@
     - [List custom features](#list-custom-features)
     - [Show recipe content](#show-recipe-content)
     - [Extra options](#extra-options)
+- [Known issues](#known-issues)
 - [Hakufile syntax](#hakufile-syntax)
     - [Basics](#basics)
     - [Identifiers](#identifiers)
@@ -141,7 +142,10 @@ Active recipe: build
 
 ## Known issues
 
-TODO: about cmd.exe and quotes
+Since `cmd.exe` has distinctive rules to escape quotes in a command, use this shell with care:
+any command that includes quotes fails when running with `cmd.exe`. `Powershell` works fine in
+this case. So, a possible workaround may be: switch shell before executing a command with quoted 
+arguments to `powershell` and set it back to `cmd.exe` after the command is finished.
 
 ## Hakufile syntax
 

@@ -32,3 +32,9 @@ I wanted to make everything case-insensitive, so people can write in any way the
 variables are a special case. If a variable is not initialized by a script, its value is read
 from environment variable (transparent usage of environment variables). E.g., in Linux
 the name of environment variable is case sensitive. Hence there is discrepancy.
+
+### Why powershell is default on Windows instead of cmd.exe
+
+Shell `cmd.exe` does not support the standard Unix way of escaping quotes. So, a command with
+quotes inside(e.g., to pass a name of a file with spaces) most probably fails. `Powershell` does
+not have this issue, so a command with quotes must work as expected.
