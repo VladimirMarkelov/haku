@@ -1058,12 +1058,13 @@ impl Engine {
             return Err(HakuError::StrayElseError(self.error_extra()));
         }
         let op = self.cond_stack[self.cond_stack.len() - 1].clone();
+        output!(self.opts.verbosity, 3, "else op: {:?}", op);
         match op.cond {
             Condition::If(c) => {
                 if c {
-                    Ok(idx + 1)
-                } else {
                     Ok(self.find_end(file, idx + 1, "else")?)
+                } else {
+                    Ok(idx + 1)
                 }
             }
             _ => Err(HakuError::StrayElseError(self.error_extra())),
@@ -1084,7 +1085,7 @@ impl Engine {
         let op = self.cond_stack[self.cond_stack.len() - 1].clone();
         match op.cond {
             Condition::If(c) => {
-                if !c {
+                if c {
                     return Ok(self.find_end(file, idx + 1, "else")?);
                 }
                 let v = self.exec_op(&ops[0])?;
