@@ -3,6 +3,9 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::process::Command;
 use std::usize;
+use std::env;
+use std::path::{PathBuf};
+use std::mem;
 
 use crate::errors::HakuError;
 use crate::func::run_func;
@@ -171,6 +174,10 @@ pub struct Engine {
     real_line: usize,
     /// file index of currently executing line
     file_idx: usize,
+    /// current working directory
+    cwd: PathBuf,
+    /// directory change stack (for "cd -" command)
+    cwd_history: Vec<PathBuf>,
 }
 
 /// Describes a recipe location
@@ -214,6 +221,14 @@ impl Engine {
         #[cfg(not(windows))]
         let shell = vec!["sh".to_string(), "-cu".to_string()];
 
+        let cwd = match env::current_dir() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("Failed to detect current working directory: {:?}", e);
+                PathBuf::new()
+            }
+        };
+        let cwd_history: Vec<PathBuf> = Vec::new();
         Engine {
             files: Vec::new(),
             included: Vec::new(),
@@ -224,6 +239,8 @@ impl Engine {
             file_idx: usize::MAX,
             opts,
             shell,
+            cwd,
+            cwd_history,
         }
     }
 
@@ -627,6 +644,10 @@ impl Engine {
                 Op::ElseIf(ops) => {
                     i = self.exec_elseif(&ops, file, i)?;
                 } // must have exact 1 op
+                Op::Cd(flags, p) => {
+                    self.exec_cd(flags, &p)?;
+                    i += 1;
+                }
                 _ => {
                     eprintln!("UNIMPLEMENTED: {:?}", op);
                     i += 1;
@@ -797,6 +818,11 @@ impl Engine {
                 Op::ElseIf(ops) => {
                     idx = self.exec_elseif(&ops, file, idx)?;
                 } // must have exact 1 op
+                Op::Cd(flags, p) => {
+                    let cmd_flags = sec_flags ^ flags;
+                    self.exec_cd(cmd_flags, &p)?;
+                    idx += 1;
+                }
                 _ => {
                     idx += 1; /* just skip */
                 }
@@ -871,6 +897,9 @@ impl Engine {
             cmd.arg(arg);
         }
         cmd.arg(&cmdline);
+        if !self.cwd_history.is_empty() {
+            cmd.current_dir(&self.cwd);
+        }
         let out = match cmd.output() {
             Ok(o) => o,
             Err(e) => return Err(HakuError::ExecFailureError(cmdline, e.to_string(), self.error_extra())),
@@ -912,6 +941,9 @@ impl Engine {
             cmd.arg(arg);
         }
         cmd.arg(&cmdline);
+        if !self.cwd_history.is_empty() {
+            cmd.current_dir(&self.cwd);
+        }
         let result = cmd.status();
         let st = match result {
             Ok(exit_status) => exit_status,
@@ -1271,6 +1303,46 @@ impl Engine {
             },
         }
         Ok(false)
+    }
+
+    /// If the corresponding `if` or previous `elseif` condition is true, the function
+    /// finishes `if` execution by looking for its `end`. Otherwise, it evaluates `elseif`
+    /// condition. If it is `true`, it starts executing `elseif` body. If `false`, looks
+    /// for the next `elseif`/`else`/`end` which comes first.
+    fn exec_cd(&mut self, flags: u32, path: &str) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 3, "Exec cd");
+        let path = self.varmgr.interpolate(&path, true);
+        if !is_flag_on(flags, FLAG_QUIET) {
+            println!("cd {}", path);
+        }
+        if path == "-" {
+            if !self.cwd_history.is_empty() {
+                self.cwd = self.cwd_history.pop().unwrap_or(self.cwd.clone());
+            }
+            return Ok(())
+        }
+        let fspath = PathBuf::from(path);
+        let new_path = if fspath.is_absolute() {
+            fspath
+        } else {
+            let mut p = self.cwd.clone();
+            p.push(fspath);
+            p
+        };
+        let mut full_path = match new_path.canonicalize() {
+            Err(e) => {
+                eprintln!("Failed to canonicalaize path {:?}: {:?}", new_path, e);
+                new_path
+            },
+            Ok(p) => p,
+        };
+        if !full_path.is_dir() {
+            return Err(HakuError::CdError(full_path.to_string_lossy().to_string(), self.error_extra()));
+        }
+        mem::swap(&mut self.cwd, &mut full_path);
+        self.cwd_history.push(full_path);
+
+        Ok(())
     }
 
     /// Compares two variables. Returns 1 if condition is true, and 0 otherwise.

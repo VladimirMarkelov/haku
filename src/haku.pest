@@ -42,6 +42,9 @@ feature_val = { (ident | int) ~ ("," ~ (ident | int))* }
 feature = { not_op? ~ feature_name ~ "(" ~ feature_val ~ ")" }
 feature_list = { "#[" ~ feature ~ ("," ~ feature)* ~ "]" ~ eoi }
 
+cd_body = { ANY+ }
+cd_stmt = { cmd_flags? ~ ^"cd" ~ cd_body }
+
 sec_sep = { ":" }
 sec_name = { ident }
 sec_arg_name = @{ "+"? ~ ident }
@@ -88,4 +91,4 @@ shell_stmt = { cmd_flags? ~ shell_cmd ~ eoi }
 expression = _{ SOI ~ shebang | include_stmt | error_stmt | if_stmt | elseif_stmt | else_stmt | for_stmt
          | while_stmt | recipe | feature_list | doc_comment | comment
          | either_def_assign | either_assign | def_assign | assign | stmt_close
-         | break_stmt | cont_stmt | return_stmt | (exec ~ eoi) | (func ~ eoi) | shell_stmt }
+         | break_stmt | cont_stmt | return_stmt | cd_stmt | (exec ~ eoi) | (func ~ eoi) | shell_stmt }

@@ -7,7 +7,7 @@ use crate::errors::HakuError;
 use crate::feature::process_feature;
 use crate::ops::{
     build_assign, build_def_assign, build_either_assign, build_either_def_assign, build_elseif, build_error, build_for,
-    build_func, build_if, build_include, build_recipe, build_shell_cmd, build_while, Op,
+    build_func, build_if, build_include, build_recipe, build_shell_cmd, build_while, build_cd, Op,
 };
 use crate::vm::RunOpts;
 
@@ -133,6 +133,9 @@ impl HakuFile {
                 }
                 Rule::include_stmt => {
                     self.ops.push(OpItem { op: build_include(pair.into_inner())?, line: idx });
+                }
+                Rule::cd_stmt => {
+                    self.ops.push(OpItem { op: build_cd(pair.into_inner())?, line: idx });
                 }
                 Rule::error_stmt => {
                     self.ops.push(OpItem { op: build_error(pair.into_inner())?, line: idx });

@@ -51,6 +51,8 @@ pub enum HakuError {
     EmptyShellArgError(String),
     #[error("Execution interrupted with message: {0}")]
     UserError(String),
+    #[error("Invalid directory {0}: {1}")]
+    CdError(String, String),
 }
 
 impl HakuError {

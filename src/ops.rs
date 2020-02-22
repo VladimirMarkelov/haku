@@ -127,6 +127,8 @@ pub enum Op {
     Exec(String),
     /// Logical negation of a value
     Not(Vec<Op>),
+    /// change working directory: flags, directory
+    Cd(u32, String),
 }
 
 /// Converts a prefix of a script line to a runtime flags
@@ -177,6 +179,21 @@ pub fn build_recipe(p: Pairs<Rule>) -> Result<Op, HakuError> {
     }
 
     Ok(Op::Recipe(name, flags, vars, deps))
+}
+
+/// Parses a script line with cd statement
+pub fn build_cd(p: Pairs<Rule>) -> Result<Op, HakuError> {
+    let mut flags: u32 = 0;
+    let mut cmd = String::new();
+    for s in p {
+        match s.as_rule() {
+            Rule::cmd_flags => flags = str_to_flags(s.as_str()),
+            Rule::cd_body => cmd = strip_quotes(s.as_str()).to_string(),
+            _ => {}
+        }
+    }
+
+    Ok(Op::Cd(flags, cmd))
 }
 
 /// Parses a script line with include statement
