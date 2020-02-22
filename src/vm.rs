@@ -1321,20 +1321,20 @@ impl Engine {
             }
             return Ok(())
         }
+        if path == ".." {
+            let mut p = self.cwd.clone();
+            p.pop();
+            mem::swap(&mut self.cwd, &mut p);
+            self.cwd_history.push(p);
+            return Ok(())
+        }
         let fspath = PathBuf::from(path);
-        let new_path = if fspath.is_absolute() {
+        let mut full_path = if fspath.is_absolute() {
             fspath
         } else {
             let mut p = self.cwd.clone();
             p.push(fspath);
             p
-        };
-        let mut full_path = match new_path.canonicalize() {
-            Err(e) => {
-                eprintln!("Failed to canonicalaize path {:?}: {:?}", new_path, e);
-                new_path
-            },
-            Ok(p) => p,
         };
         if !full_path.is_dir() {
             return Err(HakuError::CdError(full_path.to_string_lossy().to_string(), self.error_extra()));
