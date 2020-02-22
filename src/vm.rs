@@ -1,11 +1,11 @@
 use std::convert::From;
+use std::env;
 use std::fmt;
 use std::iter::FromIterator;
+use std::mem;
+use std::path::PathBuf;
 use std::process::Command;
 use std::usize;
-use std::env;
-use std::path::{PathBuf};
-use std::mem;
 
 use crate::errors::HakuError;
 use crate::func::run_func;
@@ -541,7 +541,7 @@ impl Engine {
     /// If a script line is a function and it is a system one(that changes the engine
     /// internal state), this function executes the line and returns `true`. Otherwise,
     /// this function does nothing and returns `false`.
-    fn system_call(&mut self, name: &str, ops: &[Op]) -> Result<bool, HakuError> {
+    fn system_call(&mut self, name: &str, ops: &[Op]) -> Result<Option<VarValue>, HakuError> {
         let lowname = name.to_lowercase();
         match lowname.as_str() {
             "shell" => {
@@ -558,9 +558,15 @@ impl Engine {
                 }
                 output!(self.opts.verbosity, 1, "Setting new shell: {:?}", v);
                 self.shell = v;
-                Ok(true)
+                Ok(Some(VarValue::from(1)))
             }
-            _ => Ok(false),
+            "invoke-dir" | "invoke_dir" | "invokedir" => {
+                if self.cwd_history.is_empty() {
+                    return Ok(Some(VarValue::from(self.cwd.clone().to_string_lossy().to_string())));
+                }
+                return Ok(Some(VarValue::from(self.cwd_history[0].clone().to_string_lossy().to_string())));
+            }
+            _ => Ok(None),
         }
     }
 
@@ -598,8 +604,8 @@ impl Engine {
                     i += 1;
                 }
                 Op::Func(name, ops) => {
-                    let is_processed = self.system_call(&name, &ops)?;
-                    if !is_processed {
+                    let processed = self.system_call(&name, &ops)?;
+                    if processed.is_none() {
                         self.exec_func(&name, &ops)?;
                     }
                     i += 1;
@@ -772,8 +778,8 @@ impl Engine {
                     idx += 1;
                 }
                 Op::Func(name, ops) => {
-                    let is_processed = self.system_call(&name, &ops)?;
-                    if !is_processed {
+                    let processed = self.system_call(&name, &ops)?;
+                    if processed.is_none() {
                         self.exec_func(&name, &ops)?;
                     }
                     idx += 1;
@@ -1319,14 +1325,14 @@ impl Engine {
             if !self.cwd_history.is_empty() {
                 self.cwd = self.cwd_history.pop().unwrap_or(self.cwd.clone());
             }
-            return Ok(())
+            return Ok(());
         }
         if path == ".." {
             let mut p = self.cwd.clone();
             p.pop();
             mem::swap(&mut self.cwd, &mut p);
             self.cwd_history.push(p);
-            return Ok(())
+            return Ok(());
         }
         let fspath = PathBuf::from(path);
         let mut full_path = if fspath.is_absolute() {
@@ -1384,7 +1390,13 @@ impl Engine {
                 unreachable!()
             }
             Op::AndExpr(ops) => self.exec_and_expr(ops),
-            Op::Func(name, ops) => self.exec_func(name, ops),
+            Op::Func(name, ops) => {
+                let processed = self.system_call(name, ops)?;
+                if let Some(v) = processed {
+                    return Ok(v);
+                }
+                self.exec_func(&name, &ops)
+            }
             Op::Compare(cmp_op, ops) => self.exec_compare(cmp_op, ops),
             _ => unreachable!(),
         }

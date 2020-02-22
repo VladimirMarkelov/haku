@@ -6,8 +6,8 @@ use pest::Parser;
 use crate::errors::HakuError;
 use crate::feature::process_feature;
 use crate::ops::{
-    build_assign, build_def_assign, build_either_assign, build_either_def_assign, build_elseif, build_error, build_for,
-    build_func, build_if, build_include, build_recipe, build_shell_cmd, build_while, build_cd, Op,
+    build_assign, build_cd, build_def_assign, build_either_assign, build_either_def_assign, build_elseif, build_error,
+    build_for, build_func, build_if, build_include, build_recipe, build_shell_cmd, build_while, Op,
 };
 use crate::vm::RunOpts;
 

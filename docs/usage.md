@@ -851,6 +851,7 @@ even on 64-bit Linux(e.g., with Wine), `bit` will return `"32"` and `family` wil
 - `with-filename`, `with-name` - replaces file name in the path: `with-name("/opt/doc/today.log", "~today.log.bak")` => `"/opt/doc/~today.log.bak"`
 - `with-stem` - replaces file or directory stem and keep existing extension: `with-stem("/opt/doc/today.log", "yesterday")` => `"/opt/doc/yesterday.log"`
 - `join` - joins any number of path elements into one path using OS file path separator: `"join("/opt", "doc", "today.log")` => `"/opt/doc/today.log"`
+- `invoke-dir`, `invokedir` - `invoke-dir()` returns the directory from which the script was executed. It maybe useful if you call `cd` a few time and want to return to the original directory or to build absolute path related to the current working directory.
 
 #### String manipulation
 
