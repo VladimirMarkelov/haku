@@ -35,6 +35,7 @@
             - [FOR statement](#for-statement)
             - [BREAK statement](#break-statement)
             - [CONTINUE statement](#continue-statement)
+        - [CD command](#cd-command)
         - [RETURN statement](#return-statement)
         - [ERROR statement](#error-statement)
         - [IMPORT statement](#import-statement)
@@ -736,6 +737,28 @@ Interrupts for/while loop. Raises an error if used outside a loop.
 ##### CONTINUE statement
 
 Forces the next iteration, skipping any code between `continue` and the loop `end`. Raises an error if used outside a loop.
+
+#### CD command
+
+Haku provides a built-in command `cd` to change current working directory. It is not as powerful as
+a shell `cd` command but it is very helpful when writing long scripts. The command supports three forms:
+
+- `cd ..` - go up to the parent of the current working directory;
+- `cd -` - every new `cd` command(except `cd -` remembers the current directory in an internal list
+  and `cd -` goes to the previously remembered command. If the internal list is empty, the command
+  does nothing, so the safe way to return to the initial directory after a few `cd` calls is just
+  call `cd -` for a few times in loop. Note, that the command works different from, e.g. bash one,
+  while bash `cd -` switch between two last used directories, every haku command keeps going back
+  in the `cd` history;
+- `cd any-text` - everything after `cd` and until the end of line is considered a new directory name.
+  It can be either full path like `cd /tmp/dir1` or relative one(relative to the current working
+  directory like `cd dir/subdir`.
+
+As of version 0.3, the command have a few limitations:
+
+- special shortcuts like `~` for user's home directory and alike are not supported;
+- `..` cannot be a part of a path, it must be a single value of a `cd`. So if you need to, e.g.,
+  do something like `cd ..\release`, you have to call `cd` two times: `cd ..` and `cd release`.
 
 #### RETURN statement
 
