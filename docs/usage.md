@@ -7,6 +7,7 @@
     - [Show recipe content](#show-recipe-content)
     - [Extra options](#extra-options)
 - [Known issues](#known-issues)
+- [Quick start](#quick-start)
 - [Hakufile syntax](#hakufile-syntax)
     - [Basics](#basics)
     - [Identifiers](#identifiers)
@@ -41,6 +42,7 @@
         - [IMPORT statement](#import-statement)
     - [Built-in functions](#built-in-functions)
         - [System info](#system-info)
+        - [Environment variables](#environment-variables)
         - [User info](#user-info)
         - [Filesystem paths](#filesystem-paths)
         - [String manipulation](#string-manipulation)
@@ -147,6 +149,103 @@ Since `cmd.exe` has distinctive rules to escape quotes in a command, use this sh
 any command that includes quotes fails when running with `cmd.exe`. `Powershell` works fine in
 this case. So, a possible workaround may be: switch shell before executing a command with quoted 
 arguments to `powershell` and set it back to `cmd.exe` after the command is finished.
+
+## Quick start
+
+Create in a directory a file names `hakufile` or `taskfile`(capitalized names are supported as well).
+Here is the quick example with comments:
+
+```
+// This is comment
+# This is also comment
+// All indentations in this example are just for readability, haku does not care about the number
+// of TABs or spaces. You can even write witout any indentation and the script will just work.
+
+// the following two line are "header", they are executed for any recipe
+make = "make"
+version = "1.0"
+
+// Haku execute a script one by line. So, if you need to execute a long command, you have either
+// to write it as one long line:
+cmake -bbuild -G "NMake Makefiles" ..
+// or you can use `\` to divide the long line for readabiliy. This one does the same as above:
+cmake -bbuild \
+  -G "Nmake Makefiles" \
+ ..
+
+// recipe starts with an indentifier followed by ':'
+show-path:
+   // '${}' are substituted with real variable values. If a variable with this name does not exist,
+   // the script looks for environment variable with the same name(as in this example - it prints
+   // the value of the environment variable 'PATH')
+   echo ${PATH}
+
+// recipe can have dependencies that are executed before the main recipe. All dependencies go after ':'
+// This recipe first prints the value of 'PATH' and then builds the project
+build-release: show-path
+  ${make} build release
+
+// recipe can have arguments - they are between recipe name and ':'. Arguments are free command-line
+// arguments assigned to recipe argumetns in order of appearence. The last recipe argument can 
+// start with '+' that means that the argument is kind of "list" and gets all yet unused command-line
+// arguments. Let's assume, the command line is:
+// $ haku display arg1 arg2 arg3
+
+// This recipe assigns v1="arg1", v2="arg2", v3="arg3", v4=""
+display v1 v2 v3 v4:
+//
+// This recipe assigns v1="arg1", v2=["arg2", "arg3"]
+display v1 +v2:
+
+// ## This is doc comment. When it goes before a recipe, it is displayed by command `--list` as recipe description
+// 
+// You can declare a recipe enabled only if a certain feature is enabled. The first of the following
+// recipes is executed only on Windows, and the second one only on Linux - that makes it possible to
+// write a crossplatform scripts:
+
+#[family(windows)]
+info:
+   echo "Windows detected"
+#[family(linux)]
+info:
+   echo "Linux detected"
+
+// script provides a set of control flow statements: while, for, if, break, continue. `If` example:
+// a script uses the corrent makefile to build a binary depending on the OS:
+build:
+ if family() == "windows"
+    makefile = "-f makefile.gnu"
+ else
+   makefile = ""
+ end
+ make ${makefile}
+
+// A few examples of dvanced usage:
+// Reading an environment variable and use default value if it does not exist or empty:
+val = ${ENV_VAR} ? "default value"
+
+// Execute an external comamnd and show its output line by line with line numbers
+num = 1
+for line in `ls *.txt`:
+  text = "${num}. ${line}"
+  echo ${text}
+  num = inc($num)
+end
+
+// Every external command is printed to standard output, unless it is silenced
+// This is printed:
+cd build
+// This is not printed
+@cd build
+
+// Every failed external command aborts the script, but you can mark a command "always-OK" one:
+// here, if the directory exists, it fails and aborts the scrpt and "make" is not called:
+mkdir ${dir}
+make
+// here, the script continues execution and "make" is called in any case
+-mkdir ${dir}
+make
+```
 
 ## Hakufile syntax
 
@@ -741,7 +840,11 @@ Forces the next iteration, skipping any code between `continue` and the loop `en
 #### CD command
 
 Haku provides a built-in command `cd` to change current working directory. It is not as powerful as
-a shell `cd` command but it is very helpful when writing long scripts. The command supports three forms:
+a shell `cd` command but it is very helpful when writing long scripts. Note that `cd` does not change
+the current working directory for its parent process. So, you do not have to restore the current
+directory when the script finishes. All change directory call are like "virtual" ones.
+
+The command supports the following forms:
 
 - `cd ..` - go up to the parent of the current working directory;
 - `cd -` - every new `cd` command(except `cd -` remembers the current directory in an internal list
@@ -758,7 +861,10 @@ As of version 0.3, the command have a few limitations:
 
 - special shortcuts like `~` for user's home directory and alike are not supported;
 - `..` cannot be a part of a path, it must be a single value of a `cd`. So if you need to, e.g.,
-  do something like `cd ..\release`, you have to call `cd` two times: `cd ..` and `cd release`.
+  do something like `cd ..\release`, you have to call `cd` two times: `cd ..` and `cd release`;
+- `cd` command checks only if the directory exists but does not check that it is accessible;
+  so `cd` may work fine, but the following command would fail if the current user has no access
+  rights to this directory.
 
 #### RETURN statement
 
@@ -826,6 +932,22 @@ even on 64-bit Linux(e.g., with Wine), `bit` will return `"32"` and `family` wil
 - `arch` - CPU architecture: aarch64, arm, asmjs, hexagon, mips, mips64, msp430, powerpc,
   powerpc64, s390x, sparc, sparc64, wasm32, x86, x86_64, xcore
 - `endian` - endianness: big, little
+
+#### Environment variables
+
+Reading environment variables is transparent: they are used in the same way as variables defined
+by a script(e.g., `echo ${PATH}` prints the content of the environment variable `PATH` if the script
+has not defined its own variable with the same and has shadowed the environment variable making it
+inaccessible). To change and remove environment variables, the engine provides the following functions:
+
+- `set-env`, `setenv` - `set-env(var-name, new-value)` assigns the new value `new-value` to the
+  environment variable `var-name`;
+- `del-env`, `delenv` - `del-env(var-name)` removes the environment variable `var-name` defined by the script;
+- `clear-env`, `clearenv` - `clear-env()` deletes all environment variables defined by the script.
+
+Note: all mentioned functions never change the system environment variables. All changes are local
+to the running script. So, `del-env` does not remove a variable if it has existed before `haku` script
+is executed. If you want to "delete" such variable, use workaround with empty value: `set_env(var-name, "")`.
 
 #### User info
 
