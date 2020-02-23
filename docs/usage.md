@@ -7,6 +7,8 @@
     - [Show recipe content](#show-recipe-content)
     - [Extra options](#extra-options)
 - [Known issues](#known-issues)
+    - [Using cmd.exe as a shell and quoted arguments](#using-cmdexe-as-a-shell-and-quoted-arguments)
+    - [Executing binaries in Powershell when path contains spaces](#executing-binaries-in-powershell-when-path-contains-spaces)
 - [Quick start](#quick-start)
 - [Hakufile syntax](#hakufile-syntax)
     - [Basics](#basics)
@@ -145,10 +147,37 @@ Active recipe: build
 
 ## Known issues
 
+### Using cmd.exe as a shell and quoted arguments
+
 Since `cmd.exe` has distinctive rules to escape quotes in a command, use this shell with care:
 any command that includes quotes fails when running with `cmd.exe`. `Powershell` works fine in
 this case. So, a possible workaround may be: switch shell before executing a command with quoted 
 arguments to `powershell` and set it back to `cmd.exe` after the command is finished.
+
+### Executing binaries in Powershell when path contains spaces
+
+`Haku` is unable to detect the correct path to a binary inside a string, so it does not escape
+anything. It results in that the script:
+
+```
+zip7="c:/Program Files/7-Zip/7z.exe"
+${zip7}
+```
+
+fails with the error `c:\program : The term 'c:/Program' is not recognized as the name of a cmdlet, ...`.
+To fix the problem, a command with spaces in powershell must be escaped with `&`. The fixed script:
+
+```
+zip7="c:/Program Files/7-Zip/7z.exe"
+& ${zip7}
+```
+
+Note: if you want to use slashes instead of backslashes, you have to escape them for powershell:
+
+```
+zip7="c:\\Program Files\\7-Zip\\7z.exe"
+& ${zip7}
+```
 
 ## Quick start
 
