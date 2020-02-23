@@ -53,6 +53,8 @@ pub enum HakuError {
     UserError(String),
     #[error("Invalid directory {0}: {1}")]
     CdError(String, String),
+    #[error("Missing environment variable name: {0}")]
+    EnvVarMissingError(String),
 }
 
 impl HakuError {

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::From;
 use std::env;
 use std::usize;
@@ -439,11 +440,13 @@ pub(crate) struct VarMgr {
     vars: Vec<Var>,
     /// verbosity level when displaying info for a user to standard output
     verbosity: usize,
+    /// list of environment variables defined by the running script
+    pub(crate) env: HashMap<String, String>,
 }
 
 impl VarMgr {
     pub(crate) fn new(verbosity: usize) -> Self {
-        VarMgr { recipe_vars: Vec::new(), vars: Vec::new(), free: Vec::new(), verbosity }
+        VarMgr { recipe_vars: Vec::new(), vars: Vec::new(), free: Vec::new(), verbosity, env: HashMap::new() }
     }
 
     /// Change or creates a recipe local variable.
@@ -483,7 +486,8 @@ impl VarMgr {
     }
 
     /// Returns a value of a variable. First it looks for a recipe local. If it does not exist,
-    /// looks for a global variable. Returns `Undefined` if no variable exists.
+    /// looks for a global variable. The last check is to look for the environment variable.
+    /// Returns `Undefined` if no variable exists.
     pub(crate) fn var(&self, name: &str) -> VarValue {
         for v in self.recipe_vars.iter() {
             if v.name == name {
@@ -496,6 +500,11 @@ impl VarMgr {
                 output!(self.verbosity, 2, "Global var {} found", name);
                 return v.value.clone();
             }
+        }
+
+        if let Some(s) = self.env.get(name) {
+            output!(self.verbosity, 2, "Use environment variable from script {}", name);
+            return VarValue::Str(s.to_string());
         }
 
         if let Ok(s) = env::var(name) {

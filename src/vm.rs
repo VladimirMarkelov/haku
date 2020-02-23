@@ -228,7 +228,6 @@ impl Engine {
                 PathBuf::new()
             }
         };
-        let cwd_history: Vec<PathBuf> = Vec::new();
         Engine {
             files: Vec::new(),
             included: Vec::new(),
@@ -240,7 +239,7 @@ impl Engine {
             opts,
             shell,
             cwd,
-            cwd_history,
+            cwd_history: Vec::new(),
         }
     }
 
@@ -538,6 +537,18 @@ impl Engine {
         Ok(())
     }
 
+    fn ops_to_strings(&mut self, ops: &[Op], skip_empty: bool) -> Vec<String> {
+        let it = ops.iter().map(|a| match self.exec_op(a) {
+            Err(_) => String::new(),
+            Ok(res) => res.to_string(),
+        });
+        if skip_empty {
+            it.filter(|a| !a.is_empty()).collect()
+        } else {
+            it.collect()
+        }
+    }
+
     /// If a script line is a function and it is a system one(that changes the engine
     /// internal state), this function executes the line and returns `true`. Otherwise,
     /// this function does nothing and returns `false`.
@@ -545,14 +556,7 @@ impl Engine {
         let lowname = name.to_lowercase();
         match lowname.as_str() {
             "shell" => {
-                let v: Vec<String> = ops
-                    .iter()
-                    .map(|a| match self.exec_op(a) {
-                        Err(_) => String::new(),
-                        Ok(res) => res.to_string(),
-                    })
-                    .filter(|a| !a.is_empty())
-                    .collect();
+                let v = self.ops_to_strings(ops, true);
                 if v.is_empty() {
                     return Err(HakuError::EmptyShellArgError(self.error_extra()));
                 }
@@ -564,7 +568,31 @@ impl Engine {
                 if self.cwd_history.is_empty() {
                     return Ok(Some(VarValue::from(self.cwd.clone().to_string_lossy().to_string())));
                 }
-                return Ok(Some(VarValue::from(self.cwd_history[0].clone().to_string_lossy().to_string())));
+                Ok(Some(VarValue::from(self.cwd_history[0].clone().to_string_lossy().to_string())))
+            }
+            "set-env" | "set_env" | "setenv" => {
+                let v = self.ops_to_strings(ops, false);
+                if v.is_empty() || v[0] == "" {
+                    return Err(HakuError::EnvVarMissingError(self.error_extra()));
+                }
+                let val = if v.len() > 1 { v[1].clone() } else { String::new() };
+                output!(self.opts.verbosity, 1, "Change env var {} to '{}'", v[0], val);
+                self.varmgr.env.insert(v[0].clone(), val);
+                Ok(Some(VarValue::from(1)))
+            }
+            "del-env" | "del_env" | "delenv" => {
+                let v = self.ops_to_strings(ops, false);
+                if v.is_empty() || v[0] == "" {
+                    return Err(HakuError::EnvVarMissingError(self.error_extra()));
+                }
+                output!(self.opts.verbosity, 1, "Remove env var {}", v[0]);
+                self.varmgr.env.remove(&v[0]);
+                Ok(Some(VarValue::from(1)))
+            }
+            "clear-env" | "clear_env" | "clearenv" => {
+                output!(self.opts.verbosity, 1, "Remove all env vars");
+                self.varmgr.env.clear();
+                Ok(Some(VarValue::from(1)))
             }
             _ => Ok(None),
         }
@@ -903,9 +931,7 @@ impl Engine {
             cmd.arg(arg);
         }
         cmd.arg(&cmdline);
-        if !self.cwd_history.is_empty() {
-            cmd.current_dir(&self.cwd);
-        }
+        self.augment_cmd(&mut cmd);
         let out = match cmd.output() {
             Ok(o) => o,
             Err(e) => return Err(HakuError::ExecFailureError(cmdline, e.to_string(), self.error_extra())),
@@ -930,6 +956,15 @@ impl Engine {
         Ok(eres)
     }
 
+    fn augment_cmd(&self, cmd: &mut Command) {
+        if !self.cwd_history.is_empty() {
+            cmd.current_dir(&self.cwd);
+        }
+        if !self.varmgr.env.is_empty() {
+            cmd.envs(&self.varmgr.env);
+        }
+    }
+
     /// Executes external command and collects its standard and error output, and exit code.
     /// Before execution the engine substitutes used variables in command line.
     ///
@@ -947,9 +982,7 @@ impl Engine {
             cmd.arg(arg);
         }
         cmd.arg(&cmdline);
-        if !self.cwd_history.is_empty() {
-            cmd.current_dir(&self.cwd);
-        }
+        self.augment_cmd(&mut cmd);
         let result = cmd.status();
         let st = match result {
             Ok(exit_status) => exit_status,
@@ -1323,7 +1356,7 @@ impl Engine {
         }
         if path == "-" {
             if !self.cwd_history.is_empty() {
-                self.cwd = self.cwd_history.pop().unwrap_or(self.cwd.clone());
+                self.cwd = self.cwd_history.pop().unwrap_or_else(|| self.cwd.clone());
             }
             return Ok(());
         }
@@ -1392,8 +1425,11 @@ impl Engine {
             Op::AndExpr(ops) => self.exec_and_expr(ops),
             Op::Func(name, ops) => {
                 let processed = self.system_call(name, ops)?;
-                if let Some(v) = processed {
-                    return Ok(v);
+                if processed.is_some() {
+                    if let Some(v) = processed {
+                        return Ok(v);
+                    }
+                    return Ok(VarValue::from(0));
                 }
                 self.exec_func(&name, &ops)
             }
