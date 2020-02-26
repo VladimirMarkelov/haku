@@ -5,6 +5,7 @@ use std::iter::FromIterator;
 use std::mem;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{Duration, Instant};
 use std::usize;
 
 use crate::errors::HakuError;
@@ -35,6 +36,28 @@ macro_rules! output {
     };
 }
 
+/// Human-readable formatting of a time duration:
+///   == 0    => 0ms
+///    > 60s  => 10m30s
+///    > 0s   => 30s234ms
+///    < 0s   => 234ms
+fn human_duration(dur: Duration) -> String {
+    let sec = dur.as_secs();
+    if sec >= 60 {
+        let min = sec / 60;
+        let sec = sec - min * 60;
+        return format!("{}m{}s", min, sec);
+    }
+    let milli = dur.subsec_millis();
+    if milli == 0 {
+        return "0ms".to_string();
+    }
+    if sec > 0 {
+        return format!("{}s{}ms", sec, milli);
+    }
+    format!("{}ms", milli)
+}
+
 /// Runtime engine options
 #[derive(Clone)]
 pub struct RunOpts {
@@ -44,11 +67,13 @@ pub struct RunOpts {
     verbosity: usize,
     /// `true` - do not run any shell commands (except ones in assignments and for's)
     dry_run: bool,
+    /// `true` - show time taken by a recipe
+    show_time: bool,
 }
 
 impl Default for RunOpts {
     fn default() -> Self {
-        RunOpts { dry_run: false, feats: Vec::new(), verbosity: 0 }
+        RunOpts { dry_run: false, feats: Vec::new(), verbosity: 0, show_time: false }
     }
 }
 
@@ -69,6 +94,11 @@ impl RunOpts {
 
     pub fn with_verbosity(mut self, verbosity: usize) -> Self {
         self.verbosity = verbosity;
+        self
+    }
+
+    pub fn with_time(mut self, show: bool) -> Self {
+        self.show_time = show;
         self
     }
 }
@@ -765,11 +795,18 @@ impl Engine {
         output!(self.opts.verbosity, 2, "recipe call stack: {:?}", sec);
         let mut idx = 0;
         while idx < sec.len() {
+            let now = Instant::now();
             let op = &sec[idx];
             output!(self.opts.verbosity, 1, "Starting recipe: {}", op.name);
             self.enter_recipe(op);
             self.exec_from(op.loc.file, op.loc.line + 1, op.flags)?;
             self.leave_recipe();
+            let dur = now.elapsed();
+            if self.opts.show_time {
+                println!("Section {} finished in {}", op.name, human_duration(dur));
+            } else {
+                output!(self.opts.verbosity, 1, "Section {} finished in {}", op.name, human_duration(dur));
+            }
             idx += 1;
         }
         Ok(())

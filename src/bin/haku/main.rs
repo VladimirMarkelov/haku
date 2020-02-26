@@ -114,8 +114,11 @@ fn main() -> Result<(), HakuError> {
 
     let filename = if conf.filename.is_empty() { detect_taskfile() } else { conf.filename.clone() };
 
-    let opts =
-        RunOpts::new().with_dry_run(conf.dry_run).with_features(conf.features.clone()).with_verbosity(conf.verbose);
+    let opts = RunOpts::new()
+        .with_dry_run(conf.dry_run)
+        .with_features(conf.features.clone())
+        .with_verbosity(conf.verbose)
+        .with_time(conf.show_time);
     let mut eng = Engine::new(opts);
     eng.set_free_args(&conf.args);
     if let Err(e) = eng.load_from_file(&filename) {

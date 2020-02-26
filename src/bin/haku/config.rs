@@ -17,6 +17,7 @@ pub struct Config {
     pub show_all: bool,
     pub show_features: bool,
     pub show_recipe: String,
+    pub show_time: bool,
 }
 
 impl Config {
@@ -33,6 +34,7 @@ impl Config {
             recipe: String::new(),
             features: Vec::new(),
             show_recipe: String::new(),
+            show_time: false,
         }
     }
 }
@@ -58,6 +60,7 @@ pub fn parse_args() -> Result<Config, HakuError> {
     opts.optflag("a", "all", "list all recipes: available and disabled ones");
     opts.optflag("", "list-features", "list user-defined features used by a script");
     opts.optopt("", "show", "show recipe content", "RECIPE_NAME");
+    opts.optflag("", "time", "show time taken by a recipe");
 
     let matches: Matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -81,6 +84,7 @@ pub fn parse_args() -> Result<Config, HakuError> {
         conf.verbose = matches.opt_count("v");
     }
     conf.version = matches.opt_present("version");
+    conf.show_time = matches.opt_present("time");
     if !matches.free.is_empty() {
         conf.recipe = matches.free[0].clone();
     }

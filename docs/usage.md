@@ -144,6 +144,8 @@ Active recipe: build
 - `-f` or `--file`[PATH_TO_SCRIPT] - run a script from this file. If this option is omitted,
   the application looks for files `Taskfile` or `Hakufile` and runs the first found one
 - `--feature` - set a comma separated list of custom features for a script
+- `--time` - show time taken by every recipe (recipe time includes the time taken by its dependencies).
+  In verbose mode `haku` always shows how much time every recipe has taken
 
 ## Known issues
 
