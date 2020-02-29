@@ -565,7 +565,7 @@ impl Engine {
             // default recipe can be missing
             return self.exec_recipe(sec.loc);
         }
-        Ok(())
+        Err(HakuError::DefaultRecipeError)
     }
 
     pub(crate) fn set_shell(&mut self, new_shell: Vec<String>) -> FuncResult {

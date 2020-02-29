@@ -1,7 +1,6 @@
 mod config;
-use std::path::Path;
-
 use std::collections::HashSet;
+use std::path::Path;
 use std::process::exit;
 
 use config::{parse_args, Config};
@@ -155,8 +154,15 @@ fn main() -> Result<(), HakuError> {
     }
 
     if let Err(e) = eng.run_recipe(&conf.recipe) {
-        eprintln!("{}", e);
-        exit(1);
+        match e {
+            HakuError::DefaultRecipeError => {
+                println!("Default recipe is not found. Consider creating recipe '_default'");
+            }
+            _ => {
+                eprintln!("{}", e);
+                exit(1);
+            }
+        }
     };
     Ok(())
 }

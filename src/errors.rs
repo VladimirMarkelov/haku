@@ -3,6 +3,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum HakuError {
+    #[error("Default recipe not found")]
+    DefaultRecipeError,
     #[error("Internal Error{0}")]
     InternalError(String),
     #[error("Invalid feature name '{0}'{1}")]

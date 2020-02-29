@@ -74,7 +74,11 @@ If a recipe has no arguments, all command line free arguments are ignored.
 
 Examples:
 
+`haku` - run the script header, and try executing the default recipe `_default`. If there is no
+active recipe with name `_default`, `haku` displays a warning but the result is success(`$?` is `0`)
+
 `haku build` - run the first recipe with the name `build`
+
 `haku build v1.0` - run the first recipe with the name `build` and pass `v1.0` as its first argument
 
 ### List recipes
