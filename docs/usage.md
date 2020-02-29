@@ -884,6 +884,8 @@ The command supports the following forms:
   call `cd -` for a few times in loop. Note, that the command works different from, e.g. bash one,
   while bash `cd -` switch between two last used directories, every haku command keeps going back
   in the `cd` history;
+- `cd ~` - go to user's home directory;
+- `cd ~/path` or `cd ~\path` - go to a subdirecrtory `path` inside user's home directory;
 - `cd any-text` - everything after `cd` and until the end of line is considered a new directory name.
   It can be either full path like `cd /tmp/dir1` or relative one(relative to the current working
   directory like `cd dir/subdir`.

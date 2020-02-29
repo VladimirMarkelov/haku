@@ -1,3 +1,4 @@
+use dirs;
 use std::convert::From;
 use std::env;
 use std::fmt;
@@ -1348,6 +1349,25 @@ impl Engine {
         Ok(false)
     }
 
+    fn interpolate_path(&self, path: &str) -> String {
+        if path != "~" && !path.starts_with("~/") && !path.starts_with("~\\") {
+            return path.to_string();
+        }
+        let home = match dirs::home_dir() {
+            None => {
+                eprintln!("Failed to get user's home directory");
+                return path.to_string();
+            }
+            Some(p) => p.to_string_lossy().to_string(),
+        };
+        if path == "~" {
+            return home;
+        }
+        let rest = path.trim_start_matches("~/").trim_start_matches("~\\");
+        let pb = PathBuf::from(home);
+        pb.join(PathBuf::from(rest)).to_string_lossy().to_string()
+    }
+
     /// If the corresponding `if` or previous `elseif` condition is true, the function
     /// finishes `if` execution by looking for its `end`. Otherwise, it evaluates `elseif`
     /// condition. If it is `true`, it starts executing `elseif` body. If `false`, looks
@@ -1355,6 +1375,7 @@ impl Engine {
     fn exec_cd(&mut self, flags: u32, path: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "Exec cd");
         let path = self.varmgr.interpolate(&path, true);
+        let path = self.interpolate_path(&path);
         if !is_flag_on(flags, FLAG_QUIET) {
             println!("cd {}", path);
         }

@@ -614,7 +614,8 @@ impl VarMgr {
                 s_ptr = &s_ptr["\\$".len()..];
                 continue;
             }
-            // not escaped - take the next letter as is
+            // not escaped - take the next letter as is and \
+            res += "\\";
             s_ptr = &s_ptr["\\".len()..];
         }
         res
