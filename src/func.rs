@@ -10,6 +10,7 @@ use target::{arch, endian, os, os_family, pointer_width};
 use unicode_width::UnicodeWidthStr;
 
 use crate::var::VarValue;
+use crate::vm::Engine;
 
 // arch: aarch64, arm, asmjs, hexagon, mips, mips64, msp430, powerpc, powerpc64, s390x
 //       sparc, sparc64, wasm32, x86, x86_64, xcore
@@ -22,7 +23,7 @@ use crate::var::VarValue;
 /// default alphabet to generate random strings
 const LETTERS: &str = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-type FuncResult = Result<VarValue, String>;
+pub(crate) type FuncResult = Result<VarValue, String>;
 /// File path check: object is file, object is directory, object exists
 enum CheckType {
     IsFile,
@@ -68,7 +69,7 @@ enum StrCase {
     Low,
 }
 
-pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
+pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncResult {
     let lowstr = name.to_lowercase();
     match lowstr.as_str() {
         "os" => Ok(VarValue::from(os())),
@@ -113,8 +114,36 @@ pub(crate) fn run_func(name: &str, args: &[VarValue]) -> FuncResult {
         "rand-str" | "rand_str" => rand_string(args),
         "inc" => increment(args),
         "dec" => decrement(args),
+        "shell" => change_shell(eng, args),
+        "invoke-dir" | "invoke_dir" | "invokedir" => {
+            if eng.cwd_history.is_empty() {
+                return Ok(VarValue::from(eng.cwd.clone().to_string_lossy().to_string()));
+            }
+            Ok(VarValue::from(eng.cwd_history[0].clone().to_string_lossy().to_string()))
+        }
+        "set-env" | "set_env" | "setenv" => set_env_var(eng, args),
+        "del-env" | "del_env" | "delenv" => del_env_var(eng, args),
+        "clear-env" | "clear_env" | "clearenv" => eng.clear_env_vars(),
         _ => Err(format!("function {} not found", name)),
     }
+}
+
+fn change_shell(eng: &mut Engine, args: &[VarValue]) -> FuncResult {
+    let v: Vec<String> = args.iter().map(|v| v.to_string()).filter(|a| !a.is_empty()).collect();
+    eng.set_shell(v)
+}
+
+fn set_env_var(eng: &mut Engine, args: &[VarValue]) -> FuncResult {
+    let v: Vec<String> = args.iter().map(|v| v.to_string()).filter(|a| !a.is_empty()).collect();
+    let name = if v.is_empty() { String::new() } else { v[0].clone() };
+    let val = if v.len() > 1 { v[1].clone() } else { String::new() };
+    eng.set_env_var(name, val)
+}
+
+fn del_env_var(eng: &mut Engine, args: &[VarValue]) -> FuncResult {
+    let v: Vec<String> = args.iter().map(|v| v.to_string()).filter(|a| !a.is_empty()).collect();
+    let name = if v.is_empty() { String::new() } else { v[0].clone() };
+    eng.del_env_var(name)
 }
 
 /// Checks if all paths are the same: files, directories, existing filesystem objects

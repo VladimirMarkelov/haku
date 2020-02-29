@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use std::usize;
 
 use crate::errors::HakuError;
-use crate::func::run_func;
+use crate::func::{run_func, FuncResult};
 use crate::ops::{is_flag_on, Op, Seq, FLAG_PASS, FLAG_QUIET};
 use crate::parse::{DisabledRecipe, HakuFile};
 use crate::var::{ExecResult, VarMgr, VarValue};
@@ -205,9 +205,9 @@ pub struct Engine {
     /// file index of currently executing line
     file_idx: usize,
     /// current working directory
-    cwd: PathBuf,
+    pub(crate) cwd: PathBuf,
     /// directory change stack (for "cd -" command)
-    cwd_history: Vec<PathBuf>,
+    pub(crate) cwd_history: Vec<PathBuf>,
 }
 
 /// Describes a recipe location
@@ -567,65 +567,38 @@ impl Engine {
         Ok(())
     }
 
-    fn ops_to_strings(&mut self, ops: &[Op], skip_empty: bool) -> Vec<String> {
-        let it = ops.iter().map(|a| match self.exec_op(a) {
-            Err(_) => String::new(),
-            Ok(res) => res.to_string(),
-        });
-        if skip_empty {
-            it.filter(|a| !a.is_empty()).collect()
-        } else {
-            it.collect()
+    pub(crate) fn set_shell(&mut self, new_shell: Vec<String>) -> FuncResult {
+        // TODO: some sanity checks?
+        if new_shell.is_empty() {
+            return Err("shell cannot be empty".to_string());
         }
+        output!(self.opts.verbosity, 1, "Setting new shell: {:?}", new_shell);
+        self.shell = new_shell;
+        Ok(VarValue::from(1))
     }
 
-    /// If a script line is a function and it is a system one(that changes the engine
-    /// internal state), this function executes the line and returns `true`. Otherwise,
-    /// this function does nothing and returns `false`.
-    fn system_call(&mut self, name: &str, ops: &[Op]) -> Result<Option<VarValue>, HakuError> {
-        let lowname = name.to_lowercase();
-        match lowname.as_str() {
-            "shell" => {
-                let v = self.ops_to_strings(ops, true);
-                if v.is_empty() {
-                    return Err(HakuError::EmptyShellArgError(self.error_extra()));
-                }
-                output!(self.opts.verbosity, 1, "Setting new shell: {:?}", v);
-                self.shell = v;
-                Ok(Some(VarValue::from(1)))
-            }
-            "invoke-dir" | "invoke_dir" | "invokedir" => {
-                if self.cwd_history.is_empty() {
-                    return Ok(Some(VarValue::from(self.cwd.clone().to_string_lossy().to_string())));
-                }
-                Ok(Some(VarValue::from(self.cwd_history[0].clone().to_string_lossy().to_string())))
-            }
-            "set-env" | "set_env" | "setenv" => {
-                let v = self.ops_to_strings(ops, false);
-                if v.is_empty() || v[0] == "" {
-                    return Err(HakuError::EnvVarMissingError(self.error_extra()));
-                }
-                let val = if v.len() > 1 { v[1].clone() } else { String::new() };
-                output!(self.opts.verbosity, 1, "Change env var {} to '{}'", v[0], val);
-                self.varmgr.env.insert(v[0].clone(), val);
-                Ok(Some(VarValue::from(1)))
-            }
-            "del-env" | "del_env" | "delenv" => {
-                let v = self.ops_to_strings(ops, false);
-                if v.is_empty() || v[0] == "" {
-                    return Err(HakuError::EnvVarMissingError(self.error_extra()));
-                }
-                output!(self.opts.verbosity, 1, "Remove env var {}", v[0]);
-                self.varmgr.env.remove(&v[0]);
-                Ok(Some(VarValue::from(1)))
-            }
-            "clear-env" | "clear_env" | "clearenv" => {
-                output!(self.opts.verbosity, 1, "Remove all env vars");
-                self.varmgr.env.clear();
-                Ok(Some(VarValue::from(1)))
-            }
-            _ => Ok(None),
+    pub(crate) fn set_env_var(&mut self, name: String, value: String) -> FuncResult {
+        if name.is_empty() {
+            return Err("variable name missing".to_string());
         }
+        output!(self.opts.verbosity, 1, "Change env var {} to '{}'", name, value);
+        self.varmgr.env.insert(name, value);
+        Ok(VarValue::from(1))
+    }
+
+    pub(crate) fn del_env_var(&mut self, name: String) -> FuncResult {
+        if name.is_empty() {
+            return Err("variable name missing".to_string());
+        }
+        output!(self.opts.verbosity, 1, "Delete env var {}", name);
+        self.varmgr.env.remove(&name);
+        Ok(VarValue::from(1))
+    }
+
+    pub(crate) fn clear_env_vars(&mut self) -> FuncResult {
+        output!(self.opts.verbosity, 1, "Remove all env vars");
+        self.varmgr.env.clear();
+        Ok(VarValue::from(1))
     }
 
     /// Executes a script from the first line until the first recipe or end of the script.
@@ -662,10 +635,7 @@ impl Engine {
                     i += 1;
                 }
                 Op::Func(name, ops) => {
-                    let processed = self.system_call(&name, &ops)?;
-                    if processed.is_none() {
-                        self.exec_func(&name, &ops)?;
-                    }
+                    self.exec_func(&name, &ops)?;
                     i += 1;
                 } // top level - func value is dropped
                 Op::StmtClose => {
@@ -843,10 +813,7 @@ impl Engine {
                     idx += 1;
                 }
                 Op::Func(name, ops) => {
-                    let processed = self.system_call(&name, &ops)?;
-                    if processed.is_none() {
-                        self.exec_func(&name, &ops)?;
-                    }
+                    self.exec_func(&name, &ops)?;
                     idx += 1;
                 } // top level - func value is dropped
                 Op::StmtClose => {
@@ -1133,7 +1100,7 @@ impl Engine {
             let v = self.exec_op(op)?;
             args.push(v);
         }
-        let r = run_func(name, &args);
+        let r = run_func(name, self, &args);
         output!(self.opts.verbosity, 3, "func {} with {} args returned {:?}", name, ops.len(), r);
         r.map_err(|s| HakuError::FunctionError(format!("{}: {}", s, self.error_extra())))
     }
@@ -1460,16 +1427,7 @@ impl Engine {
                 unreachable!()
             }
             Op::AndExpr(ops) => self.exec_and_expr(ops),
-            Op::Func(name, ops) => {
-                let processed = self.system_call(name, ops)?;
-                if processed.is_some() {
-                    if let Some(v) = processed {
-                        return Ok(v);
-                    }
-                    return Ok(VarValue::from(0));
-                }
-                self.exec_func(&name, &ops)
-            }
+            Op::Func(name, ops) => self.exec_func(&name, &ops),
             Op::Compare(cmp_op, ops) => self.exec_compare(cmp_op, ops),
             _ => unreachable!(),
         }

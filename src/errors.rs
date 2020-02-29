@@ -47,14 +47,10 @@ pub enum HakuError {
     StrayElseIfError(String),
     #[error("Only the last recipe argument can be a list: '{0}'")]
     RecipeListArgError(String),
-    #[error("Shell function requires an argument{0}")]
-    EmptyShellArgError(String),
     #[error("Execution interrupted with message: {0}")]
     UserError(String),
     #[error("Invalid directory {0}: {1}")]
     CdError(String, String),
-    #[error("Missing environment variable name: {0}")]
-    EnvVarMissingError(String),
 }
 
 impl HakuError {
