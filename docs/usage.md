@@ -6,7 +6,7 @@
     - [List custom features](#list-custom-features)
     - [Show recipe content](#show-recipe-content)
     - [Extra options](#extra-options)
-- [Known issues](#known-issues)
+- [Known issues, pifalls, and gotchas](#known-issues-pifalls-and-gotchas)
     - [Windows: using cmd.exe as a shell and quoted arguments](#windows-using-cmdexe-as-a-shell-and-quoted-arguments)
     - [Windows: executing binaries in Powershell when path contains spaces](#windows-executing-binaries-in-powershell-when-path-contains-spaces)
     - [Linux: execution result in haku differs from executing the same command in bash](#linux-execution-result-in-haku-differs-from-executing-the-same-command-in-bash)
@@ -153,7 +153,7 @@ Active recipe: build
 - `--time` - show time taken by every recipe (recipe time includes the time taken by its dependencies).
   In verbose mode `haku` always shows how much time every recipe has taken
 
-## Known issues
+## Known issues, pifalls, and gotchas
 
 ### Windows: using cmd.exe as a shell and quoted arguments
 
