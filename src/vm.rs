@@ -334,7 +334,7 @@ impl Engine {
                 Op::Recipe(_, _, _, _) => break,
                 Op::Comment(_) | Op::DocComment(_) => { /* just continue */ }
                 Op::Include(flags, path) => {
-                    let inc_path = self.varmgr.interpolate(&path, true, true);
+                    let inc_path = self.varmgr.interpolate(&path, true);
                     output!(self.opts.verbosity, 3, "        !!INCLUDE - {}", inc_path);
                     to_include.push(inc_path);
                     to_include_flags.push(*flags);
@@ -375,7 +375,7 @@ impl Engine {
             for (line_idx, op) in hk.ops.iter().enumerate() {
                 match op.op {
                     Op::Feature(_, _) => {}
-                    Op::DocComment(ref s) => desc = self.varmgr.interpolate(s, true, true),
+                    Op::DocComment(ref s) => desc = self.varmgr.interpolate(s, true),
                     Op::Recipe(ref nm, flags, ref vars, ref deps) => {
                         let mut recipe = RecipeDesc {
                             name: nm.clone(),
@@ -929,7 +929,7 @@ impl Engine {
     ///
     /// Internal function to use by `for` or assignment statement.
     fn exec_cmd(&mut self, cmdline: &str) -> Result<ExecResult, HakuError> {
-        let cmdline = self.varmgr.interpolate(&cmdline, true, true);
+        let cmdline = self.varmgr.interpolate(&cmdline, true);
         let mut eres = ExecResult { code: 0, stdout: String::new() };
         let mut cmd = Command::new(&self.shell[0]);
         for arg in self.shell[1..].iter() {
@@ -976,7 +976,7 @@ impl Engine {
     /// Used by script lines that are standalone shell calls, like `rm "${filename}"`
     fn exec_cmd_shell(&mut self, flags: u32, cmdline: &str) -> Result<(), HakuError> {
         let no_fail = is_flag_on(flags, FLAG_PASS);
-        let cmdline = self.varmgr.interpolate(&cmdline, true, true);
+        let cmdline = self.varmgr.interpolate(&cmdline, true);
         output!(self.opts.verbosity, 2, "ExecShell[{}]: {}", no_fail, cmdline);
         if !is_flag_on(flags, FLAG_QUIET) {
             println!("{}", cmdline);
@@ -1302,7 +1302,7 @@ impl Engine {
                 return Ok(true);
             }
             Seq::Str(s) => {
-                let s = self.varmgr.interpolate(&s, false, false);
+                let s = self.varmgr.interpolate(&s, false);
                 let mut v: Vec<String> = if s.find('\n').is_some() {
                     s.trim_end().split('\n').map(|s| s.trim_end().to_string()).collect()
                 } else {
@@ -1376,7 +1376,7 @@ impl Engine {
     /// for the next `elseif`/`else`/`end` which comes first.
     fn exec_cd(&mut self, flags: u32, path: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "Exec cd");
-        let path = self.varmgr.interpolate(&path, true, true);
+        let path = self.varmgr.interpolate(&path, true);
         let path = self.interpolate_path(&path);
         if !is_flag_on(flags, FLAG_QUIET) {
             println!("cd {}", path);
@@ -1429,7 +1429,7 @@ impl Engine {
         match op {
             Op::Int(i) => Ok(VarValue::Int(*i)),
             Op::Str(s) => {
-                let s = self.varmgr.interpolate(&s, false, false);
+                let s = self.varmgr.interpolate(&s, false);
                 Ok(VarValue::Str(s))
             }
             Op::Var(name) => Ok(self.varmgr.var(name)),
