@@ -539,8 +539,10 @@ impl VarMgr {
     /// * `true` - join all lines with a space (for shell execution)
     /// * `false` - join all lines with new line character (for `print`)
     ///
+    /// Argument `only_vars` determines whether the function converts \\, \$,\n and \t to codes
+    ///
     /// Besides replacing variable names it replaces a few escape sequences: `\n`, `\\`, and `\t`.
-    pub(crate) fn interpolate(&self, in_str: &str, flat: bool) -> String {
+    pub(crate) fn interpolate(&self, in_str: &str, flat: bool, only_vars: bool) -> String {
         let mut start_s: usize;
         let mut start_d: usize;
         let mut res = String::new();
@@ -548,7 +550,7 @@ impl VarMgr {
 
         while !s_ptr.is_empty() {
             start_d = s_ptr.find('$').unwrap_or(usize::MAX);
-            start_s = s_ptr.find('\\').unwrap_or(usize::MAX);
+            start_s = if only_vars { usize::MAX } else { s_ptr.find('\\').unwrap_or(usize::MAX) };
 
             if start_s == usize::MAX && start_d == usize::MAX {
                 return res + s_ptr;
