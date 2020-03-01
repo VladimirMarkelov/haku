@@ -1138,6 +1138,7 @@ impl Engine {
         match op.cond {
             Condition::If(c) => {
                 if c {
+                    self.cond_stack.pop();
                     Ok(self.find_end(file, idx + 1, "else")?)
                 } else {
                     Ok(idx + 1)
