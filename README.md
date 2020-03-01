@@ -3,6 +3,7 @@
 - [Intro](#intro)
     - [License](#license)
     - [Similar projects](#similar-projects)
+      - [Comparison with `just`](docs/comparison.md)
 - [Installation](#installation)
     - [Precompiled binaries](#precompiled-binaries)
 - [Example with comments](#example-with-comments)
