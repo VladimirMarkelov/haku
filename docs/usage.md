@@ -7,8 +7,10 @@
     - [Show recipe content](#show-recipe-content)
     - [Extra options](#extra-options)
 - [Known issues](#known-issues)
-    - [Using cmd.exe as a shell and quoted arguments](#using-cmdexe-as-a-shell-and-quoted-arguments)
-    - [Executing binaries in Powershell when path contains spaces](#executing-binaries-in-powershell-when-path-contains-spaces)
+    - [Windows: using cmd.exe as a shell and quoted arguments](#windows-using-cmdexe-as-a-shell-and-quoted-arguments)
+    - [Windows: executing binaries in Powershell when path contains spaces](#windows-executing-binaries-in-powershell-when-path-contains-spaces)
+    - [Linux: execution result in haku differs from executing the same command in bash](#linux-execution-result-in-haku-differs-from-executing-the-same-command-in-bash)
+    - [Windows: `cd` command does not work sporadically](#windows-cd-command-does-not-work-sporadically)
 - [Quick start](#quick-start)
 - [Hakufile syntax](#hakufile-syntax)
     - [Basics](#basics)
@@ -153,14 +155,14 @@ Active recipe: build
 
 ## Known issues
 
-### Using cmd.exe as a shell and quoted arguments
+### Windows: using cmd.exe as a shell and quoted arguments
 
 Since `cmd.exe` has distinctive rules to escape quotes in a command, use this shell with care:
 any command that includes quotes fails when running with `cmd.exe`. `Powershell` works fine in
-this case. So, a possible workaround may be: switch shell before executing a command with quoted 
+this case. So, a possible workaround may be: switch shell before executing a command with quoted
 arguments to `powershell` and set it back to `cmd.exe` after the command is finished.
 
-### Executing binaries in Powershell when path contains spaces
+### Windows: executing binaries in Powershell when path contains spaces
 
 `Haku` is unable to detect the correct path to a binary inside a string, so it does not escape
 anything. It results in that the script:
@@ -184,6 +186,49 @@ Note: if you want to use slashes instead of backslashes, you have to escape them
 zip7="c:\\Program Files\\7-Zip\\7z.exe"
 & ${zip7}
 ```
+
+Another workaround is to change temporary system PATH(until the script finishes):
+
+```
+   set-env("PATH", "$PATH;c:\Program Files\7-zip")
+   7z
+```
+
+### Linux: execution result in haku differs from executing the same command in bash
+
+Some commands works differently in `sh`. E.g., `echo -e "1\2"` in `bash` prints:
+
+```
+1
+2
+```
+
+but in `sh` it prints:
+
+```
+-e 1
+2
+```
+
+It may result in an error in a following command. Workaround: switch to `bash` in the script, add this at the top
+of the script:
+
+```
+  shell("bash", "-cu")
+```
+
+### Windows: `cd` command does not work sporadically
+
+Be careful when using paths with slashes in Windows: since `haku` interpolates escaped characters it may generate
+invalid path. Example:
+```
+cd c:\project\test
+ls
+```
+
+It raises an error `Invalid directory c:\project   est`. It happens because `\t` was translated to TAB character.
+To avoid translation, either use backslashes: `cd c:/project/test` or double slashes: only "bad" ones -
+`cd c:\project\\test` or all - `cd c:\\project\\test`
 
 ## Quick start
 
@@ -221,7 +266,7 @@ build-release: show-path
   ${make} build release
 
 // recipe can have arguments - they are between recipe name and ':'. Arguments are free command-line
-// arguments assigned to recipe argumetns in order of appearence. The last recipe argument can 
+// arguments assigned to recipe argumetns in order of appearence. The last recipe argument can
 // start with '+' that means that the argument is kind of "list" and gets all yet unused command-line
 // arguments. Let's assume, the command line is:
 // $ haku display arg1 arg2 arg3
@@ -233,7 +278,7 @@ display v1 v2 v3 v4:
 display v1 +v2:
 
 // ## This is doc comment. When it goes before a recipe, it is displayed by command `--list` as recipe description
-// 
+//
 // You can declare a recipe enabled only if a certain feature is enabled. The first of the following
 // recipes is executed only on Windows, and the second one only on Linux - that makes it possible to
 // write a crossplatform scripts:
