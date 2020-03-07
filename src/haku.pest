@@ -65,6 +65,7 @@ assign = { ident ~ assign_sym ~ assign_expr ~ eoi }
 stmt_open = { ";"? ~ (^"then" | ^"do" | ":" | "{") ~ ";"? }
 stmt_close = { ^"end" | "}" | ^"done" ~ eoi }
 return_stmt = { (^"return" | ^"finish") ~ eoi }
+pause_stmt = { ^"pause"  ~ eoi }
 
 if_word = { ^"if" }
 elseif_word = { ^"elseif" }
@@ -82,7 +83,9 @@ for_word = { ^"for" }
 in_word = { ^"in" }
 int_seq = { int ~ ".." ~ int ~ (".." ~ int)? }
 raw_seq = { ident+ }
-seq = { int_seq | squoted | dquoted | exec | raw_seq }
+var_seq = { ("${" ~ ident ~ "}") | ( "$" ~ ident ) }
+str_seq = { string ~ string+ }
+seq = { int_seq | squoted | dquoted | exec | raw_seq | var_seq | str_seq }
 for_stmt = { for_word ~ ident ~ in_word ~ seq ~ stmt_open? ~ eoi}
 
 shell_cmd = { ANY* }
@@ -91,4 +94,5 @@ shell_stmt = { cmd_flags? ~ shell_cmd ~ eoi }
 expression = _{ SOI ~ shebang | include_stmt | error_stmt | if_stmt | elseif_stmt | else_stmt | for_stmt
          | while_stmt | recipe | feature_list | doc_comment | comment
          | either_def_assign | either_assign | def_assign | assign | stmt_close
-         | break_stmt | cont_stmt | return_stmt | cd_stmt | (exec ~ eoi) | (func ~ eoi) | shell_stmt }
+         | break_stmt | cont_stmt | return_stmt | pause_stmt | cd_stmt
+         | (exec ~ eoi) | (func ~ eoi) | shell_stmt }

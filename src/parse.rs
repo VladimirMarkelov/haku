@@ -193,6 +193,9 @@ impl HakuFile {
                     };
                     self.ops.push(OpItem { op: Op::Feature(pass, txt.to_string()), line: idx });
                 }
+                Rule::pause_stmt => {
+                    self.ops.push(OpItem { op: Op::Pause, line: idx });
+                }
                 _ => {
                     return Err(HakuError::ParseError(line.to_string(), HakuError::error_extra("", line, idx)));
                 }

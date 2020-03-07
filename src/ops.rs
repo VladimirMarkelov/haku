@@ -129,6 +129,8 @@ pub enum Op {
     Not(Vec<Op>),
     /// change working directory: flags, directory
     Cd(u32, String),
+    /// PAUSE statement
+    Pause,
 }
 
 /// Converts a prefix of a script line to a runtime flags
