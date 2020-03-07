@@ -11,6 +11,7 @@
     - [Windows: executing binaries in Powershell when path contains spaces](#windows-executing-binaries-in-powershell-when-path-contains-spaces)
     - [Linux: execution result in haku differs from executing the same command in bash](#linux-execution-result-in-haku-differs-from-executing-the-same-command-in-bash)
     - [Windows: `cd` command does not work sporadically](#windows-cd-command-does-not-work-sporadically)
+    - [CD command is successful but it does not change current directory](#cd-command-is-successful-but-it-does-not-change-current-directory)
 - [Quick start](#quick-start)
 - [Hakufile syntax](#hakufile-syntax)
     - [Basics](#basics)
@@ -229,6 +230,12 @@ ls
 It raises an error `Invalid directory c:\project   est`. It happens because `\t` was translated to TAB character.
 To avoid translation, either use backslashes: `cd c:/project/test` or double slashes: only "bad" ones -
 `cd c:\project\\test` or all - `cd c:\\project\\test`
+
+### CD command is successful but it does not change current directory
+
+As of version 0.3, `cd` command is kind of dumb: it checks only if the directory exists but it does check whether
+the directory is accessible (e.g., a user does not have permissions). It results in that `cd` command finishes
+successfully, but the following command either fails.
 
 ## Quick start
 
