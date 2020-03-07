@@ -1465,10 +1465,7 @@ impl Engine {
         }
     }
 
-    /// If the corresponding `if` or previous `elseif` condition is true, the function
-    /// finishes `if` execution by looking for its `end`. Otherwise, it evaluates `elseif`
-    /// condition. If it is `true`, it starts executing `elseif` body. If `false`, looks
-    /// for the next `elseif`/`else`/`end` which comes first.
+    /// Stops script execution and waits for a user to press Enter key
     fn exec_pause(&mut self) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "Exec pause");
         {

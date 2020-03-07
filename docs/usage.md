@@ -997,6 +997,10 @@ imports the opposite is correct: the deeper script the lower its priority. It ma
 create a common script with a few default recipe implementations, and them override any recipe in
 a script that imports the common one.
 
+#### PAUSE statement
+
+The command interrupts a script execution and waits for Enter key to be pressed.
+
 ### Built-in functions
 
 As of version 0.3, `haku` provides a fairly short but sufficient for every day tasks list of
