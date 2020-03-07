@@ -2,6 +2,7 @@ use dirs;
 use std::convert::From;
 use std::env;
 use std::fmt;
+use std::io::{self, Write};
 use std::iter::FromIterator;
 use std::mem;
 use std::path::PathBuf;
@@ -683,6 +684,10 @@ impl Engine {
                     self.exec_cd(flags, &p)?;
                     i += 1;
                 }
+                Op::Pause => {
+                    self.exec_pause()?;
+                    i += 1;
+                }
                 _ => {
                     eprintln!("UNIMPLEMENTED: {:?}", op);
                     i += 1;
@@ -860,6 +865,10 @@ impl Engine {
                 Op::Cd(flags, p) => {
                     let cmd_flags = sec_flags ^ flags;
                     self.exec_cd(cmd_flags, &p)?;
+                    idx += 1;
+                }
+                Op::Pause => {
+                    self.exec_pause()?;
                     idx += 1;
                 }
                 _ => {
@@ -1453,6 +1462,30 @@ impl Engine {
             Op::Func(name, ops) => self.exec_func(&name, &ops),
             Op::Compare(cmp_op, ops) => self.exec_compare(cmp_op, ops),
             _ => unreachable!(),
+        }
+    }
+
+    /// If the corresponding `if` or previous `elseif` condition is true, the function
+    /// finishes `if` execution by looking for its `end`. Otherwise, it evaluates `elseif`
+    /// condition. If it is `true`, it starts executing `elseif` body. If `false`, looks
+    /// for the next `elseif`/`else`/`end` which comes first.
+    fn exec_pause(&mut self) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 3, "Exec pause");
+        {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            if let Err(_e) = handle.write_all(b"Press Enter to continue...") {
+                return Err(HakuError::InternalError(self.error_extra()));
+            }
+            if let Err(_e) = handle.flush() {
+                return Err(HakuError::InternalError(self.error_extra()));
+            };
+        }
+
+        let mut _input = String::new();
+        match io::stdin().read_line(&mut _input) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(HakuError::InternalError(self.error_extra())),
         }
     }
 
