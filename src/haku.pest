@@ -85,7 +85,7 @@ int_seq = { int ~ ".." ~ int ~ (".." ~ int)? }
 raw_seq = { ident+ }
 var_seq = { ("${" ~ ident ~ "}") | ( "$" ~ ident ) }
 str_seq = { string ~ string+ }
-seq = { int_seq | squoted | dquoted | exec | raw_seq | var_seq | str_seq }
+seq = { int_seq | str_seq | squoted | dquoted | exec | raw_seq | var_seq }
 for_stmt = { for_word ~ ident ~ in_word ~ seq ~ stmt_open? ~ eoi}
 
 shell_cmd = { ANY* }

@@ -271,6 +271,7 @@ pub fn strip_var_deco(s: &str) -> &str {
 ///
 /// * `1..10`
 /// * `1..10..2`
+/// * `"first item" "second item" "third item"
 /// * `"val1 val2"`
 /// * ident1 ident2
 /// * `\`dir *.txt\``
@@ -326,6 +327,16 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                     return Err(HakuError::SeqError(istart, iend, istep));
                 }
                 return Ok(Seq::Int(istart, iend, istep));
+            }
+            Rule::str_seq => {
+                let mut list = Vec::new();
+                for ids in pair.into_inner() {
+                    match ids.as_rule() {
+                        Rule::string => list.push(strip_quotes(ids.as_str()).to_owned()),
+                        _ => unimplemented!(),
+                    }
+                }
+                return Ok(Seq::Idents(list));
             }
             _ => unimplemented!(),
         }
