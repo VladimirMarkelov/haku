@@ -21,6 +21,8 @@ pub enum HakuError {
     SeqIntError(&'static str, String),
     #[error("FOR: invalid sequence from {0} to {1} step {2}")]
     SeqError(i64, i64, i64),
+    #[error("FOR: variable name must not be empty: {0}")]
+    SeqVarNameError(String),
     #[error("Include recursion detected: '{0}'")]
     IncludeRecursionError(String),
     #[error("Recipe recursive call detected: '{0}'{1}")]

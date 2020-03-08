@@ -1311,6 +1311,7 @@ impl Engine {
                 return Ok(true);
             }
             Seq::Str(s) => {
+                output!(self.opts.verbosity, 3, "  FOR: whitespace-delimited string {}", s);
                 let s = self.varmgr.interpolate(&s, false);
                 let mut v: Vec<String> = if s.find('\n').is_some() {
                     s.trim_end().split('\n').map(|s| s.trim_end().to_string()).collect()
@@ -1340,7 +1341,7 @@ impl Engine {
                 Ok(res) => {
                     if res.code == 0 {
                         let mut v: Vec<String> = res.stdout.lines().map(|s| s.trim_end().to_string()).collect();
-                        output!(self.opts.verbosity, 3, "   FOR lines: {:?}", v);
+                        output!(self.opts.verbosity, 3, "   FOR exec: {:?}", v);
                         if v.is_empty() {
                             return Ok(false);
                         }
@@ -1349,13 +1350,69 @@ impl Engine {
                         self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
                         return Ok(true);
                     } else {
-                        output!(self.opts.verbosity, 3, "   FOR lines: FAILURE");
+                        output!(self.opts.verbosity, 3, "   FOR exec: FAILURE");
                     };
                 }
                 Err(_) => {
-                    output!(self.opts.verbosity, 3, "   FOR lines: FAILURE[2]");
+                    output!(self.opts.verbosity, 3, "   FOR exec: FAILURE[2]");
                 }
             },
+            Seq::Var(s) => {
+                output!(self.opts.verbosity, 3, "   FOR var ${}", s);
+                let val = self.varmgr.var(&s);
+                match val {
+                    VarValue::Undefined => {}
+                    VarValue::Int(start) => {
+                        output!(self.opts.verbosity, 3, "   FOR var int ${} = {}", s, start);
+                        self.varmgr.set_var(name, VarValue::Int(start));
+                        self.cond_stack
+                            .push(CondItem { line: idx, cond: Condition::ForInt(name.to_string(), start, start, 1) });
+                        return Ok(true);
+                    }
+                    VarValue::List(vc) => {
+                        output!(self.opts.verbosity, 3, "   FOR var list ${} = {:?}", s, vc);
+                        let mut first = true;
+                        let mut v: Vec<String> = Vec::new();
+                        for s in vc.iter() {
+                            if first {
+                                self.varmgr.set_var(name, VarValue::from(s.to_string()));
+                                first = false;
+                            } else {
+                                v.push(s.to_string());
+                            }
+                        }
+                        self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
+                        return Ok(true);
+                    }
+                    VarValue::Exec(ex) => {
+                        output!(self.opts.verbosity, 3, "   FOR var exec ${} = {:?}", s, ex);
+                        if ex.code != 0 || ex.stdout.is_empty() {
+                            return Ok(false);
+                        }
+                        let mut v: Vec<String> =
+                            ex.stdout.trim_end().split('\n').map(|s| s.trim_end().to_string()).collect();
+                        self.varmgr.set_var(name, VarValue::Str(v[0].clone()));
+                        v.remove(0);
+                        self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
+                        return Ok(true);
+                    }
+                    VarValue::Str(st) => {
+                        output!(self.opts.verbosity, 3, "   FOR var str ${} = {}", s, st);
+                        if st.is_empty() {
+                            return Ok(false);
+                        }
+                        let mut v: Vec<String> = if st.find('\n').is_some() {
+                            st.trim_end().split('\n').map(|s| s.trim_end().to_string()).collect()
+                        } else {
+                            st.trim_end().split_whitespace().map(|s| s.to_string()).collect()
+                        };
+                        self.varmgr.set_var(name, VarValue::Str(v[0].clone()));
+                        v.remove(0);
+                        self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
+                        return Ok(true);
+                    }
+                }
+            }
         }
         Ok(false)
     }

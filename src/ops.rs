@@ -14,6 +14,8 @@ pub enum Seq {
     Idents(Vec<String>),
     /// a result of external command execution
     Exec(String),
+    /// a value of a variable
+    Var(String),
 }
 
 /// external command and recipe flags. Flags are added as prefixes of a script lines.
@@ -275,7 +277,9 @@ pub fn strip_var_deco(s: &str) -> &str {
 /// * `"val1 val2"`
 /// * ident1 ident2
 /// * `\`dir *.txt\``
+/// * `${var-name}` or `$var-name`
 fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
+    let text = p.as_str().to_owned();
     for pair in p {
         match pair.as_rule() {
             Rule::squoted | Rule::dquoted => return Ok(Seq::Str(strip_quotes(pair.as_str()).to_string())),
@@ -337,6 +341,19 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                     }
                 }
                 return Ok(Seq::Idents(list));
+            }
+            Rule::var_seq => {
+                let mut var_name = String::new();
+                for ids in pair.into_inner() {
+                    match ids.as_rule() {
+                        Rule::ident => var_name = ids.as_str().to_owned(),
+                        _ => unimplemented!(),
+                    }
+                }
+                if var_name.is_empty() {
+                    return Err(HakuError::SeqVarNameError(text));
+                }
+                return Ok(Seq::Var(var_name));
             }
             _ => unimplemented!(),
         }
