@@ -739,7 +739,7 @@ mod var_test {
         let ostr = v.interpolate("", false);
         assert_eq!(&ostr, "");
         let ostr = v.interpolate("1234\\5678\\90", false);
-        assert_eq!(&ostr, "1234567890");
+        assert_eq!(&ostr, "1234\\5678\\90");
         let ostr = v.interpolate("\\t1234\\\\5678\\n90\\t", false);
         assert_eq!(&ostr, "\t1234\\5678\n90\t");
     }

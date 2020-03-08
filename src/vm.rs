@@ -1633,6 +1633,8 @@ mod vm_test {
             Prs { expr: "for a in 'a b c d' then", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
             Prs { expr: "for a in a b c d :", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
             Prs { expr: "for a in `dir *.*`", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
+            Prs { expr: "for a in \"acd def\" \"fgh er\"", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
+            Prs { expr: "for a in ${var}", tp: Op::For(String::new(), Seq::Int(0, 0, 0)) },
         ];
         for p in parses {
             let opts = RunOpts::new();
