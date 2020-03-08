@@ -1332,8 +1332,9 @@ impl Engine {
                 if ids.is_empty() {
                     return Ok(false);
                 }
-                self.varmgr.set_var(name, VarValue::Str(ids[0].clone()));
-                let v: Vec<String> = ids.iter().skip(1).map(|s| s.to_string()).collect();
+                let first = self.varmgr.interpolate(&ids[0], false);
+                self.varmgr.set_var(name, VarValue::Str(first));
+                let v: Vec<String> = ids.iter().skip(1).map(|s| self.varmgr.interpolate(s, false)).collect();
                 self.cond_stack.push(CondItem { line: idx, cond: Condition::ForList(name.to_string(), v) });
                 return Ok(true);
             }

@@ -45,6 +45,7 @@
         - [RETURN statement](#return-statement)
         - [ERROR statement](#error-statement)
         - [IMPORT statement](#import-statement)
+        - [PAUSE statement](#pause-statement)
     - [Built-in functions](#built-in-functions)
         - [System info](#system-info)
         - [Environment variables](#environment-variables)
@@ -915,6 +916,36 @@ Loop through external command output. It is line-based loop: the input is split 
 ```
 FOR a in `ls *.txt`:
 ```
+
+Loop through a string list. It differs from the previous ones: items can contain spaces. This loop can iterate only
+a list that contains at least two items:
+
+```
+FOR a in "first item" "second item" 'third item: ${val}':
+```
+
+NOTE: all values are calculated at the time when FOR loop is initialized. So, e.g., if you modify `val` variable
+inside this FOR loop, the last string value - `third item: ${val}` - won't change, it keeps using the value that `val`
+had before the loop has started.
+
+Loop using a variable. Its behavior depends on the variable value:
+
+```
+FOR a in $var:
+
+# or
+
+FOR a in ${var}
+```
+
+The following rules are applied:
+
+- if variable `var` contains the result of an external command execution or it is a string with new line characters,
+  the loop is line based with input split at new lines;
+- if variable `var` is a recipe list argument(one with leading `+` before its name), the loop goes through all
+  list values;
+- if variable `var` is a number, the loop is run only once, as if it was defined as `for a in ${var}..${var}`;
+- in other cases the loop is word-based one: it splits the input at whitespaces.
 
 ##### BREAK statement
 
