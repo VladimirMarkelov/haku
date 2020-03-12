@@ -235,7 +235,12 @@ impl HakuFile {
                 hk.orig_lines.push(l.trim_end().to_string());
                 let l = l.trim();
                 full_line += l;
-                if full_line.ends_with('\\') || full_line == "" {
+                if full_line == "" {
+                    continue;
+                }
+                if full_line.ends_with('\\') {
+                    let stripped = full_line.trim_end_matches('\\');
+                    full_line = format!("{} ", stripped);
                     continue;
                 }
             } else {
@@ -299,11 +304,9 @@ impl HakuFile {
                 Op::Feature(b, ref s) => {
                     if skip == Skip::Recipe {
                         ds.next_pass &= b;
-                        ds.next_f_list.push(o.clone());
                         ds.next_fstr += s;
                     } else {
                         ds.pass &= b;
-                        ds.f_list.push(o.clone());
                         ds.fstr += s;
                     }
                 }
