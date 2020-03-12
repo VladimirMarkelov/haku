@@ -465,7 +465,8 @@ impl Engine {
             // ignore all doc comments and feature lists related to the next section
             while eidx > sidx
                 && (self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("#[")
-                    || self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("##"))
+                    || self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("##")
+                    || self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("//"))
             {
                 eidx -= 1;
             }
@@ -492,7 +493,15 @@ impl Engine {
             }
 
             if sidx != usize::MAX {
-                let eidx = self.next_recipe(fidx, sidx);
+                let mut eidx = self.next_recipe(fidx, sidx);
+                // ignore all doc comments and feature lists related to the next section
+                while eidx > sidx
+                    && (self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("#[")
+                        || self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("##")
+                        || self.files[fidx].orig_lines[eidx - 1].trim_start().starts_with("//"))
+                {
+                    eidx -= 1;
+                }
                 let mut content = Vec::new();
                 for lidx in sidx..eidx {
                     content.push(f.orig_lines[lidx].clone());
