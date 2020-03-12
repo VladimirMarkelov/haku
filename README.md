@@ -42,11 +42,11 @@ Haku is released under Apache License Version 2.0
 
 ### Similar projects
 
-`Haku` was inspired by two great projects: [GNU make](https://www.gnu.org/software/make/)
+`Haku` is heavily inspired by two great projects: [GNU make](https://www.gnu.org/software/make/)
 and [just](https://github.com/casey/just). They do their job well but some things still are
 a bit inconvenient to me. What made me to implement my own command runner:
 
-- both utilities above are picky about whitespace and indentation. And `make` sometimes have puzzling requirements
+- both utilities above are picky about whitespaces and indentation. And `make` sometimes have puzzling requirements
 - it is not easy to create cross-platform makefiles. `just` provides a way but it is a limited one
 - a set of built-in functions to manipulate file path: replace extension, add, create name with current time etc
 
@@ -78,13 +78,14 @@ For Windows and Ubuntu you can download precompiled binaries from [Release page]
 
 * Windows binary tested on Windows 10.
 * Ubuntu binary tested on Ubuntu 18.
+* musl-Linux build
 
 ## Example with comments
 
 ```
 // Script header starts.
 
-// select the correct name of the utility depending on OS type
+// select the correct name of the utility "rm" depending on OS type
 #[not family(windows)]
 rm = "rm"
 #[family(windows)]
@@ -142,9 +143,10 @@ precheck-two:
     // windows binary always has exe extension
     #[platform(windows)]
     app-name = add-ext($app-name, "exe")
-    ${rm_cmd} *.o
-    ${rm_cmd} *.obj
-    ${rm_cmd} ${app-name}
+    // prepend "-" to ignore any errors
+    -${rm_cmd} *.o
+    -${rm_cmd} *.obj
+    -${rm_cmd} ${app-name}
 ```
 
 The script above can be run without changes on any platform:
