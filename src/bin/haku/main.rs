@@ -128,7 +128,7 @@ fn main() -> Result<(), HakuError> {
     if !conf.show_recipe.is_empty() {
         match eng.recipe_content(&conf.show_recipe) {
             Err(e) => {
-                eprintln!("{:?}", e);
+                eprintln!("{}", e);
                 exit(1);
             }
             Ok(rcp) => {
