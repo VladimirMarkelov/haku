@@ -14,7 +14,7 @@ Both scripts use their own syntax heavily inspired by Makefile one.
 | [Multi-line command](#multi-line-commands) | + | + |
 | [Multi-line strings](#multi-line-strings) |   | + |
 | [Multi-line constructs](#multi-line-constructs) | + |   |
-| [String escapes](#string-escapes) | limited | + |
+| String escapes | + | + |
 | [Strings](#string-types) | one type | few types |
 | [Math operators](#math-operators) | very limited | very limited |
 | [Environment variable support](#environment-variables) | + | + |
@@ -54,21 +54,11 @@ single line. Yes, it can be separated with `\` but, anyway, it is executed by a 
 
 `Haku` provides built-in control flow statements, so it is possible to run a real multi-line loop.
 
-#### String escapes
-
-`Just`: `\\`, `\n`, `\r`, `\t`, `\"`
-
-`Haku`: `\\`, `\n`, `\t`
-
-`Haku` does not support escaped quotes inside strings. It uses different enclosing characters.
-
 #### String types
 
 `Just` has two string types: double-quoted one that supports escaped characters, and  single-quotes raw strings.
 
-In `haku` all strings works the same: the value must not contain a character that embraces the value. So, if you need
-a double quotes inside a string, enclose it in single quotes, and vice versa. There is third way to declare a string
-if you need both quotes but it does not have `#` character inside: `r#this is "'a' string"#`
+`haku` treats both type of string in the same way.
 
 #### Math operators
 
@@ -157,6 +147,8 @@ shell-dependent one.
 platform and in any shell.
 
 #### Built-in functions
+
+No application allows a user to create custom functions. But the number of built-in functions differs.
 
 `Just` provides only several functions that return various system information and works with environment variables.
 

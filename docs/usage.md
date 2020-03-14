@@ -524,16 +524,15 @@ number more readable: e.g., `65_536` is the same as `65536`.
 
 #### Strings
 
-At this moment a string cannot contain a quote that is used to declare the string. That is why a few
-ways to define a string are implemented:
+`Haku` supports two types of strings but both work the same:
 
-* single quoted `'value'` - the value cannot contain `'`
-* double quoted `"value"` - the value cannot contain `"`
-* raw string `r#value#` - the value cannot contain `#`
+* in single quotes `'value'`
+* in double quotes `"value"`
 
 Some characters must be escaped to be used inside a string: `\n` - new line control code,
-`\t` - tabulation, `\\` - a `\` symbol, and `\$` - a dollar sign `$`. For `$` there is an extra
-escape form `$$`.
+`\t` - tabulation, `\\` - a `\` symbol, and `\$` - a dollar sign `$`. Inside single quotes
+character `'` must be escaped `\'`. Use `\"` to escape `"` inside double quotes.
+For `$` there is an extra escape form `$$`.
 
 All strings are interpolated before use: all substrings like `${var-name}` are replace with the
 value of `var-name` variable. That is why `$` must be escaped.
