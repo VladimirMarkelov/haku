@@ -5,6 +5,11 @@ use std::usize;
 
 use crate::output;
 
+struct Escape {
+    what: &'static str,
+    with: &'static str,
+}
+
 /// Result of execution of an external command with shell
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExecResult {
@@ -545,6 +550,14 @@ impl VarMgr {
         let mut start_d: usize;
         let mut res = String::new();
         let mut s_ptr = in_str;
+        let escapes: Vec<Escape> = vec![
+            Escape{ what: "\\\\", with: "\\", },
+            Escape{ what: "\\n", with: "\n", },
+            Escape{ what: "\\t", with: "\t", },
+            Escape{ what: "\\$", with: "$", },
+            Escape{ what: "\\'", with: "'", },
+            Escape{ what: "\\\"", with: "\"", },
+        ];
 
         while !s_ptr.is_empty() {
             start_d = s_ptr.find('$').unwrap_or(usize::MAX);
@@ -590,33 +603,19 @@ impl VarMgr {
 
             res += &s_ptr[..start_s];
             s_ptr = &s_ptr[start_s..];
-            // escaped '\\'
-            if s_ptr.starts_with("\\\\") {
+            let mut escaped = false;
+            for esc in escapes.iter() {
+                if s_ptr.starts_with(esc.what) {
+                    res += esc.with;
+                    s_ptr = &s_ptr[esc.what.len()..];
+                    escaped = true;
+                    break;
+                }
+            }
+            if !escaped {
                 res += "\\";
-                s_ptr = &s_ptr["\\\\".len()..];
-                continue;
+                s_ptr = &s_ptr["\\".len()..];
             }
-            // escaped \n
-            if s_ptr.starts_with("\\n") {
-                res += "\n";
-                s_ptr = &s_ptr["\\n".len()..];
-                continue;
-            }
-            // escaped \t
-            if s_ptr.starts_with("\\t") {
-                res += "\t";
-                s_ptr = &s_ptr["\\t".len()..];
-                continue;
-            }
-            // escaped $
-            if s_ptr.starts_with("\\$") {
-                res += "$";
-                s_ptr = &s_ptr["\\$".len()..];
-                continue;
-            }
-            // not escaped - take the next letter as is and \
-            res += "\\";
-            s_ptr = &s_ptr["\\".len()..];
         }
         res
     }
@@ -742,6 +741,10 @@ mod var_test {
         assert_eq!(&ostr, "1234\\5678\\90");
         let ostr = v.interpolate("\\t1234\\\\5678\\n90\\t", false);
         assert_eq!(&ostr, "\t1234\\5678\n90\t");
+        // escaped quotes
+        let instr = "text \\\" test \\'";
+        let outstr = v.interpolate(instr, false);
+        assert_eq!("text \" test '", &outstr);
     }
 
     #[test]

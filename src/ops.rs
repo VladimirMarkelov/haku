@@ -243,7 +243,7 @@ pub fn build_shell_cmd(p: Pairs<Rule>) -> Result<Op, HakuError> {
 }
 
 /// Removes trailing and leading quotes from a string:
-/// backticks, `'...'`, `"..."`, and `r#...#`
+/// backticks, `'...'`, and `"..."`
 pub fn strip_quotes(s: &str) -> &str {
     if s.starts_with('"') {
         s.trim_matches('"')
@@ -251,9 +251,6 @@ pub fn strip_quotes(s: &str) -> &str {
         s.trim_matches('\'')
     } else if s.starts_with('`') {
         s.trim_matches('`')
-    } else if s.starts_with("r#") {
-        let s = s.trim_start_matches("r#");
-        s.trim_end_matches('#')
     } else {
         s
     }
@@ -387,7 +384,7 @@ fn build_arg_value(p: Pair<Rule>) -> Result<Op, HakuError> {
         Rule::string => {
             for in_p in p.into_inner() {
                 match in_p.as_rule() {
-                    Rule::rstr | Rule::squoted | Rule::dquoted => {
+                    Rule::squoted | Rule::dquoted => {
                         return Ok(Op::Str(strip_quotes(in_p.as_str()).to_string()))
                     }
                     _ => unimplemented!(),
@@ -396,7 +393,7 @@ fn build_arg_value(p: Pair<Rule>) -> Result<Op, HakuError> {
         }
         Rule::var => return Ok(Op::Var(strip_var_deco(p.as_str()).to_string())),
         Rule::func => return build_func(p.into_inner()),
-        Rule::dquoted | Rule::squoted | Rule::rstr => return Ok(Op::Str(strip_quotes(p.as_str()).to_string())),
+        Rule::dquoted | Rule::squoted => return Ok(Op::Str(strip_quotes(p.as_str()).to_string())),
         _ => {
             println!("{:?}", p);
             unimplemented!();

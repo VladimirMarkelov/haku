@@ -9,10 +9,9 @@ doc_comment = { SOI ~ "##" ~ comment_body }
 int = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 ident = @{ (LETTER | "_") ~ (LETTER | ASCII_DIGIT | "-" | "_")* }
 exec = { "`" ~ (!"`" ~ ANY)* ~ "`" }
-squoted = { ("''") | ("'" ~ (!"'" ~ ANY) * ~ "'") }
-dquoted = { ("\"\"") | ("\"" ~ (!"\"" ~ ANY) * ~ "\"") }
-rstr = { "r#" ~ (!"#" ~ ANY) * ~ "#" }
-string = { squoted | dquoted | rstr }
+squoted = { ("''") | ("'" ~ ("\\'" | (!"'" ~ ANY)) * ~ "'") }
+dquoted = { ("\"\"") | ("\"" ~ ("\\\"" | (!"\"" ~ ANY)) * ~ "\"") }
+string = { squoted | dquoted }
 
 cmd_flags = { ("@" | "-")* }
 
@@ -56,7 +55,7 @@ def_assign_sym = { "?=" }
 either_sym = { "?" }
 assign_sym = { "=" }
 assign_expr = { cond }
-either_arg = { var | int | ident | squoted | dquoted | rstr | exec}
+either_arg = { var | int | ident | squoted | dquoted | exec}
 either_assign = { ident ~ assign_sym ~ either_arg ~ (either_sym ~ either_arg)+ ~ eoi }
 either_def_assign = { ident ~ def_assign_sym ~ either_arg ~ (either_sym ~ either_arg)+ ~ eoi }
 def_assign = { ident ~ def_assign_sym ~ assign_expr ~  eoi }
