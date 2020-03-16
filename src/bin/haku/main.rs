@@ -5,8 +5,8 @@ use std::process::exit;
 
 use config::{parse_args, Config};
 
-use hakufile::errors::HakuError;
-use hakufile::vm::{Engine, RunOpts};
+use haku::errors::HakuError;
+use haku::vm::{Engine, RunOpts};
 
 fn nice_vec_print(lst: &[String]) {
     for (idx, s) in lst.iter().enumerate() {

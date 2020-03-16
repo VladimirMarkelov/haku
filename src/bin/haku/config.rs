@@ -3,7 +3,7 @@ use std::env;
 use std::iter::FromIterator;
 use std::process::exit;
 
-use hakufile::errors::HakuError;
+use haku::errors::HakuError;
 
 pub struct Config {
     pub dry_run: bool,
