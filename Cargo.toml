@@ -34,6 +34,6 @@ assets = [
 	["docs/usage.md", "usr/share/doc/haku/README", "644"],
 ]
 extended-description = """\
-A command runner - a handy way to execute project- or directory-specific tasks.\
+A command runner insipred by 'make' utility - a handy way to execute project- or directory-specific tasks.\
 """
 changelog = "changelog"

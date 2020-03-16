@@ -60,14 +60,14 @@ both tools are for different purposes and it does not make much sense to compare
 You can compile the application from sources, or install using cargo:
 
 ```shell
-$ cargo install haku
+$ cargo install hakufile
 ```
 
 You need Rust compiler that supports Rust 2018 edition (Rust 1.38 or newer) to do it. If you want
 to upgrade existing haku, execute the following command:
 
 ```shell
-$ cargo install haku --force
+$ cargo install hakufile --force
 ```
 
 For rust 1.41 and newer flag `--force` can be omitted.
