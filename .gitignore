@@ -5,3 +5,6 @@
 *.rar
 *.7z
 Taskfile*
+Hakufile*
+taskfile*
+hakufile*
