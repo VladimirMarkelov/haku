@@ -8,3 +8,6 @@ Taskfile*
 Hakufile*
 taskfile*
 hakufile*
+*.gz
+*.tar
+*.deb
