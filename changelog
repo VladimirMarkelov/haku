@@ -1,3 +1,9 @@
+haku (0.3.2) unstable; urgency=medium
+
+  * New function `glog` to get list of files that match a pattern
+
+ -- Vladimir Markelov <vmatroskin@gmail.com>  Thu, 19 Mar 2020 23:54:58 -0700
+
 haku (0.3.1) unstable; urgency=medium
 
   * First public version

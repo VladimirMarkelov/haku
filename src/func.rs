@@ -648,6 +648,12 @@ fn decrement(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::Int(val))
 }
 
+/// Returns a list of files and/or directories that match a pattern.
+/// First argument is a glob pattern.
+/// Second argument is optional:
+///     0 (default) - return both files and directories
+///     1 - return only files
+///     2 - return only directories
 fn globfiles(args: &[VarValue]) -> FuncResult {
     let patt = if args.is_empty() { "*".to_owned() } else { args[0].to_string() };
     let globtype = if args.len() > 1 { args[1].to_int() } else { 0 };

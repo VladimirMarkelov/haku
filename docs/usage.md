@@ -1097,6 +1097,7 @@ is executed. If you want to "delete" such variable, use workaround with empty va
 - `with-stem` - replaces file or directory stem and keep existing extension: `with-stem("/opt/doc/today.log", "yesterday")` => `"/opt/doc/yesterday.log"`
 - `join` - joins any number of path elements into one path using OS file path separator: `"join("/opt", "doc", "today.log")` => `"/opt/doc/today.log"`
 - `invoke-dir`, `invokedir` - `invoke-dir()` returns the directory from which the script was executed. It maybe useful if you call `cd` a few time and want to return to the original directory or to build absolute path related to the current working directory.
+- `glob` - `glob(pattern[,what])` returns a list of files and/or directories that match `pattern`in Linux shell style. `what` default value is `0`. When `what=1`, glob retuns only files; when `what=2`, glob returns only directories; otherwise glob returns both
 
 #### String manipulation
 
