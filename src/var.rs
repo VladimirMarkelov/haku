@@ -551,12 +551,12 @@ impl VarMgr {
         let mut res = String::new();
         let mut s_ptr = in_str;
         let escapes: Vec<Escape> = vec![
-            Escape{ what: "\\\\", with: "\\", },
-            Escape{ what: "\\n", with: "\n", },
-            Escape{ what: "\\t", with: "\t", },
-            Escape{ what: "\\$", with: "$", },
-            Escape{ what: "\\'", with: "'", },
-            Escape{ what: "\\\"", with: "\"", },
+            Escape { what: "\\\\", with: "\\" },
+            Escape { what: "\\n", with: "\n" },
+            Escape { what: "\\t", with: "\t" },
+            Escape { what: "\\$", with: "$" },
+            Escape { what: "\\'", with: "'" },
+            Escape { what: "\\\"", with: "\"" },
         ];
 
         while !s_ptr.is_empty() {

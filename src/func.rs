@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 
 use chrono;
 use dirs;
+use glob::glob;
 use rand::prelude::*;
 use regex::Regex;
 use target::{arch, endian, os, os_family, pointer_width};
-use glob::glob;
 use unicode_width::UnicodeWidthStr;
 
 use crate::var::VarValue;
@@ -649,16 +649,8 @@ fn decrement(args: &[VarValue]) -> FuncResult {
 }
 
 fn globfiles(args: &[VarValue]) -> FuncResult {
-    let patt = if args.is_empty() {
-        "*".to_owned()
-    } else {
-        args[0].to_string()
-    };
-    let globtype = if args.len() > 1 {
-        args[1].to_int()
-    } else {
-        0
-    };
+    let patt = if args.is_empty() { "*".to_owned() } else { args[0].to_string() };
+    let globtype = if args.len() > 1 { args[1].to_int() } else { 0 };
 
     let mut v: Vec<String> = Vec::new();
     let entries = match glob(&patt) {

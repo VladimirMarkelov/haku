@@ -384,9 +384,7 @@ fn build_arg_value(p: Pair<Rule>) -> Result<Op, HakuError> {
         Rule::string => {
             for in_p in p.into_inner() {
                 match in_p.as_rule() {
-                    Rule::squoted | Rule::dquoted => {
-                        return Ok(Op::Str(strip_quotes(in_p.as_str()).to_string()))
-                    }
+                    Rule::squoted | Rule::dquoted => return Ok(Op::Str(strip_quotes(in_p.as_str()).to_string())),
                     _ => unimplemented!(),
                 }
             }
