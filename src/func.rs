@@ -7,6 +7,7 @@ use dirs;
 use rand::prelude::*;
 use regex::Regex;
 use target::{arch, endian, os, os_family, pointer_width};
+use glob::glob;
 use unicode_width::UnicodeWidthStr;
 
 use crate::var::VarValue;
@@ -124,6 +125,7 @@ pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncR
         "set-env" | "set_env" | "setenv" => set_env_var(eng, args),
         "del-env" | "del_env" | "delenv" => del_env_var(eng, args),
         "clear-env" | "clear_env" | "clearenv" => eng.clear_env_vars(),
+        "glob" => globfiles(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -644,6 +646,40 @@ fn decrement(args: &[VarValue]) -> FuncResult {
         val -= inc;
     }
     Ok(VarValue::Int(val))
+}
+
+fn globfiles(args: &[VarValue]) -> FuncResult {
+    let patt = if args.is_empty() {
+        "*".to_owned()
+    } else {
+        args[0].to_string()
+    };
+    let globtype = if args.len() > 1 {
+        args[1].to_int()
+    } else {
+        0
+    };
+
+    let mut v: Vec<String> = Vec::new();
+    let entries = match glob(&patt) {
+        Ok(p) => p,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    for entry in entries {
+        if let Ok(p) = entry {
+            if globtype == 1 && !p.is_file() {
+                continue;
+            }
+            if globtype == 2 && !p.is_dir() {
+                continue;
+            }
+            let s = p.to_string_lossy();
+            v.push(s.to_string());
+        }
+    }
+
+    Ok(VarValue::List(v))
 }
 
 #[cfg(test)]
