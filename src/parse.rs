@@ -222,6 +222,8 @@ impl HakuFile {
     /// Loads and parses a script from a file. If the script contains INCLUDE statements, all
     /// included files are loaded and parsed as well
     pub fn load_from_file(path: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
+        const BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
+        let bom = if let Ok(s) = String::from_utf8(BOM.to_vec()) { s } else { "".to_string() };
         let mut hk = HakuFile::new();
         let input = match File::open(path) {
             Ok(f) => f,
@@ -232,6 +234,7 @@ impl HakuFile {
         hk.ops.clear();
         for (idx, line) in buffered.lines().enumerate() {
             if let Ok(l) = line {
+                let l = l.trim_start_matches(&bom);
                 hk.orig_lines.push(l.trim_end().to_string());
                 let l = l.trim();
                 full_line += l;
