@@ -94,7 +94,7 @@ disabled recipes as well. For disabled recipes the command shows when they becom
 
 Example (the command is run on Windows, so recipe `install` is disabled):
 
-```
+```shell
 $ haku --list --all
 Available:
     test
@@ -115,7 +115,7 @@ careful reading the script(with all script that are imported).
 
 Example:
 
-```
+```shell
 $ haku --list-features
 Features: zip,rar,7z
 ```
@@ -132,7 +132,7 @@ always looks for the first active recipe, and only if nothing found, it shows a 
 
 Example (since the script is in the current directory, the shown path is short - only filename):
 
-```
+```shell
 $ haku --show build
 Hakufile
 Active recipe: build
@@ -243,7 +243,7 @@ successfully, but the following command either fails.
 Create in a directory a file names `hakufile` or `taskfile`(capitalized names are supported as well).
 Here is the quick example with comments:
 
-```
+```rust
 // This is comment
 # This is also comment
 // All indentations in this example are just for readability, haku does not care about the number
@@ -745,7 +745,7 @@ A line starting with `#`(see a special case in [Attributes](#attributes)) or
 Double `#` starts a documentation comment. If it goes before a recipe, the text of the
 comment is displayed as the recipe description in `--list` command output:
 
-```
+```shell
 $ cat hakufile
 ## build with default flags
 build:
