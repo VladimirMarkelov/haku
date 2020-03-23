@@ -1101,6 +1101,8 @@ is executed. If you want to "delete" such variable, use workaround with empty va
 
 #### String manipulation
 
+Functions that accepts regular expressions follow the rules in [this doc](https://docs.rs/regex/1.3.5/regex/)
+
 - `time`, `format-time`, `time-format` - `time([format])` returns current local date and time in a given
   format. If format is omitted the default formatting string `"%Y%m%d-%H%M%S"` is used. There are
   two shortcuts for formatting time as RFC2822 and RFC3339: `"2822"` and `"3339"`, or `"rfc2822"`
@@ -1123,6 +1125,11 @@ is executed. If you want to "delete" such variable, use workaround with empty va
 - `match` - `match(str, rx1[, rx2..])` returns `true` if the string `str` matches any of regular
   expressions: `match("ab12cd", "def", "\d+")` -> `true` because the second regular expression `\d+`
   matches `12` in the string
+- `substr` - `substr("aabbccddee", "(a+).*(c+)"[, 0])` returns the substring from the first argument that
+  matches the regular expression - the second argument. Optional third argument defines which capture to
+  return - default is `0`. Zero capture is the entire match, separate capture indices start from `1`.
+  NOTE: if you need only the entire match, round brackets in regular expression can be omitted, so
+  `substr("aabbcc", "a+.*c+")` equals `substr("aabbcc", "(a+).*(c+)")`
 - `pad-center` - `pad-center(str, padding, max_width)` appends padding from both ends of the string
   `str` until its length reaches `max_width`. `max_width` is the length in characters, not in
   bytes. If the number of characters to add is odd, left side gets more padding characters.

@@ -107,6 +107,7 @@ pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncR
         "contains" => contains(args),
         "replace" => replace(args),
         "match" => match_regex(args),
+        "substr" => substr_regex(args),
         "pad-center" | "pad_center" => pad(args, Where::All),
         "pad-left" | "pad_left" => pad(args, Where::Left),
         "pad-right" | "pad_right" => pad(args, Where::Right),
@@ -468,6 +469,45 @@ fn match_regex(args: &[VarValue]) -> FuncResult {
         }
     }
     Ok(VarValue::Int(0))
+}
+
+/// Returns a substring that matches the entire regular expression or one of its captures.
+/// First argument is the whole string
+/// Second argument is the regular expression
+/// Third optional argument is the number of the capture (The default value `0` - return
+///    the entire substring that matches the regular expression.
+/// Returns empty string if the capture does not exist.
+/// Note that the entire substring(capture number `0`) does not equal the concatenation of
+/// all captures, because the entire substring includes even characters between captures.
+/// Example:
+///   substr("zaabbccz", "(a+).*(b+)") => "aabbcc"
+///   substr("zaabbccz", "(a+).*(b+)", 0) => "aabbcc" // the same as above
+///   substr("zaabbccz", "(a+).*(b+)", 1) => "aa"
+///   substr("zaabbccz", "(a+).*(b+)", 2) => "bb".
+/// If you need only the entire capture, then round brackets inside regular expression can be
+/// omitted:
+///   substr("zaabbccz", "(a+).*(b+)") => "aabbcc"
+///   substr("zaabbccz", "a+.*b+") => "aabbcc" // the same result
+fn substr_regex(args: &[VarValue]) -> FuncResult {
+    if args.is_empty() {
+        return Ok(VarValue::from(""));
+    }
+    if args.len() == 1 {
+        return Ok(args[0].clone());
+    }
+    let c_idx: usize = if args.len() < 3 { 0 } else { args[2].to_int() as usize };
+
+    let s = args[0].to_string();
+    let r = args[1].to_string();
+    let rx = match Regex::new(&r) {
+        Err(e) => return Err(e.to_string()),
+        Ok(rg) => rg,
+    };
+    let sub = match rx.captures(&s) {
+        None => VarValue::from(""),
+        Some(rs) => VarValue::from(rs.get(c_idx).map_or("", |st| st.as_str())),
+    };
+    Ok(sub)
 }
 
 /// Pads a string with another string until its length equals a given one. The result string
@@ -874,6 +914,28 @@ mod path_test {
         let v = vec![VarValue::from("abc def"), VarValue::from("b.*g"), VarValue::from("d[mge]+")];
         let r = match_regex(&v);
         assert_eq!(r, Ok(VarValue::from(1)));
+    }
+
+    #[test]
+    fn substrings() {
+        let v = vec![VarValue::from("aBc DeF")];
+        let r = substr_regex(&v);
+        assert_eq!(r, Ok(VarValue::from("aBc DeF")));
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("c+.*e+")];
+        let r = substr_regex(&v);
+        assert_eq!(r, Ok(VarValue::from("c De")));
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("(c+).*(e+)")];
+        let r = substr_regex(&v);
+        assert_eq!(r, Ok(VarValue::from("c De")));
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("(c+).*(e+)"), VarValue::from(0)];
+        let r = substr_regex(&v);
+        assert_eq!(r, Ok(VarValue::from("c De")));
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("(c+).*(e+)"), VarValue::from(1)];
+        let r = substr_regex(&v);
+        assert_eq!(r, Ok(VarValue::from("c")));
+        let v = vec![VarValue::from("aBc DeF"), VarValue::from("(c+).*(e+)"), VarValue::from(2)];
+        let r = substr_regex(&v);
+        assert_eq!(r, Ok(VarValue::from("e")));
     }
 
     #[test]
