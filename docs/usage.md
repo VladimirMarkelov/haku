@@ -53,6 +53,7 @@
         - [Filesystem paths](#filesystem-paths)
         - [String manipulation](#string-manipulation)
         - [Numbers](#numbers-1)
+        - [Semantic versioning](#semantic-versioning)
         - [Miscellanea](#miscellanea)
 
 ## Command line usage
@@ -1160,6 +1161,20 @@ Functions that accepts regular expressions follow the rules in [this doc](https:
 - and then incremented. Example: `a = inc($a)` => `1` if `$a` was not declared, `$a+1` otherwise.
 - `dec` - `dec(var[, dec1...])` subtracts all `dec1` from `var` and return the result. If `dec1`
   is omitted, the `var` decreased by `1`.
+
+#### Semantic versioning
+
+To know more about semantic versioning and how match rules work, follow [this link](https://semver.org/).
+
+- `ver-inc` - `ver-inc(version[, what-to-increment])` increments a semantic version and returns a new values
+  as a string. If `version` is omitted or empty string, the function returns `"0.0.1"`. The second argument
+  defines the part of version to increment: `0` - major, `1` - minor, `2`(default value if omitted) - patch.
+  Examples: `ver-inc("1.2.3") -> "1.2.4"`, `ver-inc("1.2.3", 1) => "1.3.0"`
+- `ver-eq` -> `ver-eq(versionA, versionB)` returns if versions are equal
+- `ver-lt` -> `ver-lt(versionA, versionB)` returns if `versionA` is less than `versionB`
+- `ver-gt` -> `ver-gt(versionA, versionB)` returns if `versionA` is greater than `versionB`
+- `ver-match` -> `ver-match(pattern, version)` returns if `version` matches a semantic version pattern.
+  Examples: `ver-match(">1.1", "1.2.3") => true`, `ver-match("2", "2.5.1-alpha") => false`, `ver-match("2", "2.5.1") => true`
 
 #### Miscellanea
 
