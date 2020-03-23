@@ -59,6 +59,15 @@ impl From<u32> for VarValue {
         VarValue::Int(i as i64)
     }
 }
+impl From<bool> for VarValue {
+    fn from(b: bool) -> Self {
+        if b {
+            VarValue::Int(1)
+        } else {
+            VarValue::Int(0)
+        }
+    }
+}
 
 impl ToString for VarValue {
     fn to_string(&self) -> String {

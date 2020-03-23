@@ -7,6 +7,7 @@ use dirs;
 use glob::glob;
 use rand::prelude::*;
 use regex::Regex;
+use semver::{Version, VersionReq};
 use target::{arch, endian, os, os_family, pointer_width};
 use unicode_width::UnicodeWidthStr;
 
@@ -69,6 +70,18 @@ enum StrCase {
     /// lowcase
     Low,
 }
+/// Semantic version parts
+enum Semver {
+    Major,
+    Minor,
+    Patch,
+}
+/// Compafe operation for semantic versions
+enum SemverCmp {
+    Equal,
+    Greater,
+    Less,
+}
 
 pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncResult {
     let lowstr = name.to_lowercase();
@@ -127,6 +140,11 @@ pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncR
         "del-env" | "del_env" | "delenv" => del_env_var(eng, args),
         "clear-env" | "clear_env" | "clearenv" => eng.clear_env_vars(),
         "glob" => globfiles(args),
+        "ver-inc" | "ver_inc" => semver_inc(args),
+        "ver-eq" | "ver_eq" => semver_equal(args),
+        "ver-gt" | "ver_gt" => semver_greater(args),
+        "ver-lt" | "ver_lt" => semver_less(args),
+        "ver-match" | "ver_match" => semver_match(args),
         _ => Err(format!("function {} not found", name)),
     }
 }
@@ -720,6 +738,105 @@ fn globfiles(args: &[VarValue]) -> FuncResult {
     Ok(VarValue::List(v))
 }
 
+/// Compare two semantic versions with operator `op` and return the result.
+fn semver_cmp(args: &[VarValue], op: SemverCmp) -> FuncResult {
+    if args.is_empty() {
+        return match op {
+            SemverCmp::Equal => Ok(VarValue::from(1)),
+            _ => Ok(VarValue::from(0)),
+        };
+    }
+    if args.len() == 1 {
+        return match op {
+            SemverCmp::Less => Ok(VarValue::from(0)),
+            _ => Ok(VarValue::from(1)),
+        };
+    }
+
+    let v1 = match Version::parse(&args[0].to_string()) {
+        Ok(vr) => vr,
+        Err(e) => return Err(e.to_string()),
+    };
+    let v2 = match Version::parse(&args[1].to_string()) {
+        Ok(vr) => vr,
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let res = match op {
+        SemverCmp::Equal => v1 == v2,
+        SemverCmp::Greater => v1 > v2,
+        SemverCmp::Less => v1 < v2,
+    };
+
+    Ok(VarValue::from(res))
+}
+
+fn semver_equal(args: &[VarValue]) -> FuncResult {
+    semver_cmp(args, SemverCmp::Equal)
+}
+
+fn semver_greater(args: &[VarValue]) -> FuncResult {
+    semver_cmp(args, SemverCmp::Greater)
+}
+
+fn semver_less(args: &[VarValue]) -> FuncResult {
+    semver_cmp(args, SemverCmp::Less)
+}
+
+/// Returns if a semantic version matches the version pattern.
+/// First argument is the pattern.
+/// Second argument is the version.
+/// If function gets less than 2 arguments it returns `false`.
+fn semver_match(args: &[VarValue]) -> FuncResult {
+    if args.len() < 2 {
+        return Ok(VarValue::from(0));
+    }
+    let patt = match VersionReq::parse(&args[0].to_string()) {
+        Ok(vr) => vr,
+        Err(e) => return Err(e.to_string()),
+    };
+    let ver = match Version::parse(&args[1].to_string()) {
+        Ok(vr) => vr,
+        Err(e) => return Err(e.to_string()),
+    };
+    Ok(VarValue::from(patt.matches(&ver)))
+}
+
+/// Increase semantic version. If no argument is provided or the first argument is empty string,
+/// the function returns default value "0.0.1".
+/// First argument is the version as a string.
+/// Second argument is what to increment:
+///    0 - major version
+///    1 - minor version
+///    2(default value if omitted) - patch version.
+/// Examples: `ver-inc("1.2.3") => "1.2.4"`, `ver-inc("1.2.3", 1) => "1.3.0"`
+fn semver_inc(args: &[VarValue]) -> FuncResult {
+    if args.is_empty() || (args.len() == 1 && args[0].to_string().is_empty()) {
+        return Ok(VarValue::from("0.0.1"));
+    }
+    let part = if args.len() < 2 {
+        Semver::Patch
+    } else {
+        match args[1].to_int() {
+            0 => Semver::Major,
+            1 => Semver::Minor,
+            2 => Semver::Patch,
+            num => return Err(format!("invalid semantic version part: {}", num)),
+        }
+    };
+    let mut v = match Version::parse(&args[0].to_string()) {
+        Ok(ver) => ver,
+        Err(e) => return Err(e.to_string()),
+    };
+    match part {
+        Semver::Major => v.increment_major(),
+        Semver::Minor => v.increment_minor(),
+        Semver::Patch => v.increment_patch(),
+    }
+
+    Ok(VarValue::from(format!("{}", v)))
+}
+
 #[cfg(test)]
 mod path_test {
     use super::*;
@@ -1053,5 +1170,69 @@ mod path_test {
         let v = vec![VarValue::from(10), VarValue::from(-3), VarValue::from(77)];
         let r = decrement(&v);
         assert_eq!(r, Ok(VarValue::Int(-64)));
+    }
+
+    #[test]
+    fn semver_incs() {
+        let v = vec![VarValue::from("1.2.3")];
+        let r = semver_inc(&v);
+        assert_eq!(r, Ok(VarValue::from("1.2.4")));
+        let v = vec![VarValue::from("1.2.3"), VarValue::from(0)];
+        let r = semver_inc(&v);
+        assert_eq!(r, Ok(VarValue::from("2.0.0")));
+        let v = vec![VarValue::from("1.2.3"), VarValue::from(1)];
+        let r = semver_inc(&v);
+        assert_eq!(r, Ok(VarValue::from("1.3.0")));
+        let v = vec![VarValue::from("1.2.3"), VarValue::from(2)];
+        let r = semver_inc(&v);
+        assert_eq!(r, Ok(VarValue::from("1.2.4")));
+    }
+
+    #[test]
+    fn semver_cmps() {
+        let v = vec![VarValue::from("1.2.3"), VarValue::from("1.2.3")];
+        let r = semver_equal(&v);
+        assert_eq!(r, Ok(VarValue::from(1)));
+        let r = semver_less(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let r = semver_greater(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let v = vec![VarValue::from("1.2.3"), VarValue::from("1.5.3")];
+        let r = semver_equal(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let r = semver_less(&v);
+        assert_eq!(r, Ok(VarValue::from(1)));
+        let r = semver_greater(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let v = vec![VarValue::from("1.2.3"), VarValue::from("0.5.3")];
+        let r = semver_equal(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let r = semver_less(&v);
+        assert_eq!(r, Ok(VarValue::from(0)));
+        let r = semver_greater(&v);
+        assert_eq!(r, Ok(VarValue::from(1)));
+    }
+
+    #[test]
+    fn semver_matches() {
+        struct Task {
+            p: &'static str,
+            v: &'static str,
+            r: VarValue,
+        }
+        let tasks: Vec<Task> = vec![
+            Task { p: "1.2", v: "1.2.1", r: VarValue::from(1) },
+            Task { p: "1", v: "1.2.1", r: VarValue::from(1) },
+            Task { p: "2", v: "1.2.1", r: VarValue::from(0) },
+            Task { p: ">1.3", v: "1.2.1", r: VarValue::from(0) },
+            Task { p: ">1.3", v: "2.2.1", r: VarValue::from(1) },
+            Task { p: "<1.3", v: "1.2.1", r: VarValue::from(1) },
+            Task { p: "<1.3", v: "2.2.1", r: VarValue::from(0) },
+        ];
+        for t in tasks.iter() {
+            let vc = vec![VarValue::from(t.p), VarValue::from(t.v)];
+            let res = semver_match(&vc);
+            assert_eq!(res, Ok(t.r.clone()));
+        }
     }
 }
