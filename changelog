@@ -1,6 +1,17 @@
+haku (0.3.3) unstable; urgency=medium
+
+  * New functions to process semantic versions: increment and comparison ones
+
+  * Haku detects UTF-8 BOM bytes at the beginning of the script if they present
+
+  * New function to extract a substring (returns a part of a string that
+    matches regular expression pattern)
+
+ -- Vladimir Markelov <vmatroskin@gmail.com>  Thu, 19 Mar 2020 23:54:58 -0700
+
 haku (0.3.2) unstable; urgency=medium
 
-  * New function `glog` to get list of files that match a pattern
+  * New function `glob` to get list of files that match a pattern
 
  -- Vladimir Markelov <vmatroskin@gmail.com>  Thu, 19 Mar 2020 23:54:58 -0700
 
