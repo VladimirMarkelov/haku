@@ -1,6 +1,7 @@
 # Table of Contents
 
 - [Intro](#intro)
+    - [Vim support](#vim-support)
     - [License](#license)
     - [Similar projects](#similar-projects)
       - [Comparison with `just`](docs/comparison.md)
@@ -35,6 +36,15 @@ a section is called a `recipe`. The file syntax is relaxed and simplified `makef
 
 Internally `haku` uses `powershell` on Windows and `sh` on any other OS to execute an external
 command. You can override the default using `shell` built-in function.
+
+### Vim support
+
+For more comfortable work with Hakufiles in Vim, the basic Vim support is included: just copy
+everything from `vim/*` to your Vim files directory(either `~/.vimfiles` or `%USERPROFILE%/vimfiles`
+depending on OS). The Vim support includes basic syntax highlighting and file detection. Here is
+and example of syntax highlighting in gVIM:
+
+<img src="./docs/syntax.png" alt="Haku syntax hightlight in gVim using gruvbox colorscheme and Fantasque Sans Mono font">
 
 ### License
 
