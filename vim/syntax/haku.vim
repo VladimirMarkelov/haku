@@ -72,7 +72,7 @@ syntax keyword hakuForStmt for contained nextgroup=hakuForVar
 syntax keyword hakuForIn in contained
 syntax match hakuForVar "\v\s[0-9a-zA-Z_-]+" contained
 
-syntax region hakuAssign transparent start=/\v\s*[0-9a-zA-Z_-]+\s*\=/ end=/\v$/ contains=hakuVar,hakuOperator,hakuString,hakuExecString,hakuAssignVar,hakuFunction
+syntax region hakuAssign transparent start=/\v\s*[0-9a-zA-Z_-]+\s*\??\=/ end=/\v$/ contains=hakuVar,hakuOperator,hakuString,hakuExecString,hakuAssignVar,hakuFunction
 syntax match hakuAssignVar "\v^\s*[0-9a-zA-Z_-]+" contained
 
 highlight link hakuForStmt Statement
