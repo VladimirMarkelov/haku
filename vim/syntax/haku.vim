@@ -38,9 +38,9 @@ syntax match hakuFunction "\vcontains"
 syntax keyword hakuAttributeName os family platform bit arch feature feat endian contained
 syntax match hakuAttribute "\v^\s*\#\[.*\]$" contains=hakuAttributeName
 "
-syntax match hakuDocComment "\v^\s*##.*$" contains=hakuExecString
-syntax region hakuComment start=/\v^\s*\/\// end=/\v$/ contains=hakuExecString
-syntax region hakuComment start=/\v^\s*#[^#\[]/ end=/\v$/ contains=hakuExecString
+syntax match hakuDocComment "\v^\s*##.*$" contains=hakuExecString,hakuVar,hakuInnerVar
+syntax region hakuComment start=/\v^\s*\/\// end=/\v$/ contains=hakuExecString,hakuVar,hakuInnerVar
+syntax region hakuComment start=/\v^\s*#[^#\[]/ end=/\v$/ contains=hakuExecString,hakuVar,hakuInnerVar
 
 syntax match hakuNumber "\v\d+"
 syntax match hakuExecSpecial   "\v^\s*[@-]+"
