@@ -1158,7 +1158,7 @@ Functions that accepts regular expressions follow the rules in [this doc](https:
 
 - `inc` - `inc(var[, add1..])` returns sum of `var` and all `add1`. If `add1` is omitted, the
   variable is incremented by `1`. If the variable was not initialized, its value is set to `0`,
-- and then incremented. Example: `a = inc($a)` => `1` if `$a` was not declared, `$a+1` otherwise.
+  and then incremented. Example: `a = inc($a)` => `1` if `$a` was not declared, `$a+1` otherwise.
 - `dec` - `dec(var[, dec1...])` subtracts all `dec1` from `var` and return the result. If `dec1`
   is omitted, the `var` decreased by `1`.
 
