@@ -7,6 +7,8 @@
       - [Comparison with `just`](docs/comparison.md)
 - [Installation](#installation)
     - [Precompiled binaries](#precompiled-binaries)
+- [Syntax highlighting](#syntax-highlighting)
+    - [For Vim and Neovim](#for-vim-and-neovim)
 - [Example with comments](#example-with-comments)
 
 [Documentation](/docs/usage.md)
@@ -89,6 +91,12 @@ For Windows and Ubuntu you can download precompiled binaries from [Release page]
 * Windows binary tested on Windows 10.
 * Ubuntu binary tested on Ubuntu 18.
 * musl-Linux build
+
+## Syntax highlighting
+
+### For Vim and Neovim
+
+Get it there [haku-vim](https://github.com/VladimirMarkelov/haku-vim).
 
 ## Example with comments
 
