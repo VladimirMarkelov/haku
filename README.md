@@ -9,6 +9,7 @@
     - [Precompiled binaries](#precompiled-binaries)
 - [Syntax highlighting](#syntax-highlighting)
     - [For Vim and Neovim](#for-vim-and-neovim)
+    - [For KSyntaxHighlighting](#for-ksyntaxhighlighting)
 - [Example with comments](#example-with-comments)
 
 [Documentation](/docs/usage.md)
@@ -97,6 +98,10 @@ For Windows and Ubuntu you can download precompiled binaries from [Release page]
 ### For Vim and Neovim
 
 Get it there [haku-vim](https://github.com/VladimirMarkelov/haku-vim).
+
+### For KSyntaxHighlighting
+
+Syntax highlighting for editors that uses [KSyntaxHighlighting: Kate, KDevelop, Qt Creator etc](https://gist.github.com/pozemka/38df81fb9ff3e979bd9a98a8d05a2e69).
 
 ## Example with comments
 
