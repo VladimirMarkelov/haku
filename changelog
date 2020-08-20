@@ -1,3 +1,9 @@
+haku (0.3.4) unstable; urgency=medium
+
+  * Allow hexadecimal number in expressions(including `for` sequence)
+
+ -- Vladimir Markelov <vmatroskin@gmail.com>  Wed, 19 Aug 2020 20:07:32 -0700
+
 haku (0.3.3) unstable; urgency=medium
 
   * New functions to process semantic versions: increment and comparison ones

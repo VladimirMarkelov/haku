@@ -520,8 +520,10 @@ value that simplifies variable usage in conditions. The variable is `false` if:
 
 #### Numbers
 
-Only positive and negative decimal numbers are supported. Character `_` can be used to make
-number more readable: e.g., `65_536` is the same as `65536`.
+Supported number formats:
+
+* positive and negative decimal numbers. Character `_` can be used to make number more readable: e.g., `65_536` is the same as `65536`;
+* positive hexadecimal numbers. These numbers must start with "0x" or "0X" prefix.
 
 #### Strings
 
