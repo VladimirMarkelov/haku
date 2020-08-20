@@ -2,8 +2,6 @@ use std::env;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use chrono;
-use dirs;
 use glob::glob;
 use rand::prelude::*;
 use regex::Regex;

@@ -1,4 +1,4 @@
-haku (0.3.4) unstable; urgency=medium
+haku (0.3.5) unstable; urgency=medium
 
   * Allow hexadecimal number in expressions(including `for` sequence)
 

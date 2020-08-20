@@ -259,9 +259,7 @@ impl VarValue {
     /// than failed one (exit code is not 0)
     fn cmp_greater(&self, val: &VarValue) -> bool {
         match self {
-            VarValue::Undefined => match val {
-                _ => false,
-            },
+            VarValue::Undefined => false,
             VarValue::Exec(ex) => match val {
                 VarValue::Exec(ex_val) => {
                     if ex.code == 0 && ex_val.code != 0 {

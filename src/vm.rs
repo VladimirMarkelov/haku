@@ -1,4 +1,3 @@
-use dirs;
 use std::convert::From;
 use std::env;
 use std::fmt;
