@@ -6,6 +6,7 @@ comment_body = { ANY* }
 comment = { SOI ~ ("#" | "//") ~ comment_body}
 doc_comment = { SOI ~ "##" ~ comment_body }
 
+hex_int = @{ ("0x" | "0X") ~ HEX_DIGIT+ }
 int = @{ "-"? ~ ASCII_DIGIT ~ (ASCII_DIGIT | "_")* }
 ident = @{ (LETTER | "_") ~ (LETTER | ASCII_DIGIT | "-" | "_")* }
 exec = { "`" ~ (!"`" ~ ANY)* ~ "`" }
@@ -22,7 +23,7 @@ and_op = { ^"and" | "&&" }
 or_op  = { ^"or" | "||" }
 cmp_op = { "==" | "!=" | ">" | "<" | "<=" | ">=" }
 
-arg = { not_op? ~ (var | func | int | exec | string) }
+arg = { not_op? ~ (var | func | hex_int | int | exec | string) }
 arglist = { arg ~ ("," ~ arg)* }
 func = { ident ~ (("(" ~ ")") | ("(" ~ arglist ~ ")")) }
 
@@ -37,7 +38,7 @@ error_body = { string }
 error_stmt = { ^"error" ~ error_body }
 
 feature_name = { ident }
-feature_val = { (ident | int) ~ ("," ~ (ident | int))* }
+feature_val = { (ident | hex_int | int) ~ ("," ~ (ident | hex_int | int))* }
 feature = { not_op? ~ feature_name ~ "(" ~ feature_val ~ ")" }
 feature_list = { "#[" ~ feature ~ ("," ~ feature)* ~ "]" ~ eoi }
 
@@ -55,7 +56,7 @@ def_assign_sym = { "?=" }
 either_sym = { "?" }
 assign_sym = { "=" }
 assign_expr = { cond }
-either_arg = { var | int | ident | squoted | dquoted | exec}
+either_arg = { var | hex_int | int | ident | squoted | dquoted | exec}
 either_assign = { ident ~ assign_sym ~ either_arg ~ (either_sym ~ either_arg)+ ~ eoi }
 either_def_assign = { ident ~ def_assign_sym ~ either_arg ~ (either_sym ~ either_arg)+ ~ eoi }
 def_assign = { ident ~ def_assign_sym ~ assign_expr ~  eoi }
@@ -80,7 +81,7 @@ cont_stmt = { (^"continue" | ^"cont") ~ eoi  }
 
 for_word = { ^"for" }
 in_word = { ^"in" }
-int_seq = { int ~ ".." ~ int ~ (".." ~ int)? }
+int_seq = { (hex_int | int) ~ ".." ~ (hex_int | int) ~ (".." ~ (hex_int | int))? }
 raw_seq = { ident+ }
 var_seq = { ("${" ~ ident ~ "}") | ( "$" ~ ident ) }
 str_seq = { string ~ string+ }

@@ -1,3 +1,5 @@
+use std::i64;
+
 use pest::iterators::{Pair, Pairs};
 
 use crate::errors::HakuError;
@@ -297,7 +299,7 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                 let mut step = "1".to_string();
                 for int in pair.into_inner() {
                     match int.as_rule() {
-                        Rule::int => {
+                        Rule::int | Rule::hex_int => {
                             if start.is_empty() {
                                 start = int.as_str().to_owned();
                             } else if end.is_empty() {
@@ -309,17 +311,17 @@ fn build_seq(p: Pairs<Rule>) -> Result<Seq, HakuError> {
                         _ => unimplemented!(),
                     }
                 }
-                let istart = if let Ok(i) = start.parse::<i64>() {
+                let istart = if let Ok(i) = s_to_i64(&start) {
                     i
                 } else {
                     return Err(HakuError::SeqIntError("start", start));
                 };
-                let iend = if let Ok(i) = end.parse::<i64>() {
+                let iend = if let Ok(i) = s_to_i64(&end) {
                     i
                 } else {
                     return Err(HakuError::SeqIntError("end", end));
                 };
-                let istep = if let Ok(i) = step.parse::<i64>() {
+                let istep = if let Ok(i) = s_to_i64(&step) {
                     i
                 } else {
                     return Err(HakuError::SeqIntError("step", end));
@@ -375,8 +377,8 @@ pub fn build_for(p: Pairs<Rule>) -> Result<Op, HakuError> {
 /// Parses a single function or expression value
 fn build_arg_value(p: Pair<Rule>) -> Result<Op, HakuError> {
     match p.as_rule() {
-        Rule::int => {
-            if let Ok(i) = p.as_str().parse::<i64>() {
+        Rule::int | Rule::hex_int => {
+            if let Ok(i) = s_to_i64(p.as_str()) {
                 return Ok(Op::Int(i));
             }
         }
@@ -631,4 +633,18 @@ pub fn build_while(p: Pairs<Rule>) -> Result<Op, HakuError> {
         }
     }
     unreachable!()
+}
+
+pub(crate) fn s_to_i64(s: &str) -> Result<i64, ()> {
+    if !s.starts_with("0x") && !s.starts_with("0X") {
+        if let Ok(i) = s.parse::<i64>() {
+            return Ok(i);
+        }
+        return Err(());
+    }
+    let trimmed = if s.starts_with("0x") { s.trim_start_matches("0x") } else { s.trim_start_matches("0X") };
+    if let Ok(i) = i64::from_str_radix(trimmed, 16) {
+        return Ok(i);
+    }
+    Err(())
 }
